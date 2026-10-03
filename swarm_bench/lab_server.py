@@ -4,6 +4,7 @@ import csv
 import io
 import json
 import mimetypes
+import re
 import secrets
 import threading
 import time
@@ -16,6 +17,26 @@ from .common import ROOT, read_json, write_json
 from .lab_engine import DEFAULT_COMMON_PROMPT, DEFAULT_SOLO_COMMON_PROMPT, DEFAULT_COMMUNICATION_PROMPT, DEFAULT_RESTRICTION, TOOLS, GROUP_TOOLS, PYTHON_TOOL, ARC_TOOLS, ARC_PROMPT, LabRun
 from .lab_storage import load_run
 from .providers import ProviderError, ProviderRegistry
+
+_TITLE_SUFFIX = re.compile(r"^(.*) \(\d+\)$")
+_MAX_TITLE_LEN = 150
+
+
+def unique_experiment_title(title, existing_titles):
+    """If title is taken, append Windows-style (1), (2), … to the base name."""
+    taken = set(existing_titles)
+    if title not in taken:
+        return title
+    match = _TITLE_SUFFIX.match(title)
+    base = match.group(1) if match else title
+    n = 1
+    while True:
+        suffix = f" ({n})"
+        room = _MAX_TITLE_LEN - len(suffix)
+        candidate = (base[:room] if len(base) > room else base) + suffix
+        if candidate not in taken:
+            return candidate
+        n += 1
 
 
 class LabManager:
@@ -60,9 +81,15 @@ class LabManager:
                     "runs": [self.summary(s) for s in sorted(states, key=lambda s: s["created_at"], reverse=True)]}
 
     def create(self, config):
+        config = copy.deepcopy(config)
         run_id = datetime.now().strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3)
-        run = LabRun(config, self.data_dir, self.work_dir / "runs" / run_id, self.registry)
         with self.lock:
+            titles = [s["config"]["title"] for s in self.archives.values()]
+            titles.extend(r.state["config"]["title"] for r in self.runs.values())
+            title = config.get("title", "Peer pressure experiment")
+            if isinstance(title, str):
+                config["title"] = unique_experiment_title(title, titles)
+            run = LabRun(config, self.data_dir, self.work_dir / "runs" / run_id, self.registry)
             self.runs[run_id] = run
         return run.snapshot()
 
@@ -76,14 +103,14 @@ class LabManager:
                 return snapshot
             if run_id in self.archives:
                 return copy.deepcopy(self.archives[run_id])
-            raise ValueError("Expérience inconnue")
+            raise ValueError("Unknown experiment")
 
     def inspect(self, run_id, agent):
         if run_id in self.runs:
             return self.runs[run_id].inspect(agent)
         state = self.snapshot(run_id)
         if agent not in state["config"]["agents"]:
-            raise ValueError("Agent inconnu")
+            raise ValueError("Unknown agent")
         folder = self.work_dir / "runs" / run_id
         history = copy.deepcopy(self.archive_histories[run_id].get(agent, []))
         if state["config"].get("scenario") in ("custom", "communication", "group_misalignment", "altruism", "arc"):
@@ -93,7 +120,7 @@ class LabManager:
             file = read_json(folder / "agents" / agent / "notes.json")
             files = {"notes.json": file}
         names = state["config"].get("agent_tools", {}).get(agent, state["config"].get("enabled_tools", [t["function"]["name"] for t in TOOLS]))
-        return {"agent_id": agent, "system_prompt": history[0]["content"] if history else "Historique indisponible pour cet agent.",
+        return {"agent_id": agent, "system_prompt": history[0]["content"] if history else "History unavailable for this agent.",
                 "question": state["question"], "file": file, "files": files,
                 "tools": state.get("tool_schemas", {}).get(agent, [t for t in TOOLS if t["function"]["name"] in names]),
                 "answers": state["answers"][agent], "history": history,
@@ -111,10 +138,10 @@ class LabManager:
     def control(self, run_id, action):
         with self.lock:
             if run_id not in self.runs:
-                raise ValueError("Un historique est consultable ; dupliquez sa configuration pour relancer")
+                raise ValueError("Archived run is view-only; duplicate its configuration to run again")
             run = self.runs[run_id]
             if run.state["status"] in ("complete", "stopped"):
-                raise ValueError("Expérience terminée")
+                raise ValueError("Experiment finished")
             if action in ("pause", "stop"):
                 run.pause_requested.set()
                 with run.changed:
@@ -126,14 +153,14 @@ class LabManager:
                     run.persist()
                 return self.snapshot(run_id)
             if action != "play":
-                raise ValueError("Commande inconnue")
+                raise ValueError("Unknown command")
             if self.workers.get(run_id) and self.workers[run_id].is_alive():
-                raise ValueError("L'exécution est déjà en cours")
+                raise ValueError("Execution is already in progress")
             if not run.remaining_agents():
-                raise ValueError("Plafond d'appels atteint ; créer un nouvel essai pour utiliser un nouveau budget")
+                raise ValueError("Call limit reached; create a new run to use a fresh budget")
             if run.config["mode"] == "demo" and (run.config["scenario"] != "peer_pressure" or
                     any(len(run.tools_for(a)) != len(TOOLS) for a in run.agents)):
-                raise ValueError("La démo scénarisée utilise la peer pressure et ses cinq outils ; choisir Modèles réels pour une configuration libre")
+                raise ValueError("Scripted demo uses peer pressure and its five tools; choose Live models for a free configuration")
             if run.config["mode"] == "live":
                 run.freeze_providers()
             run.pause_requested.clear()
@@ -146,7 +173,7 @@ class LabManager:
                     pass  # Error already persisted in the run.
                 except Exception:
                     with run.lock:
-                        run.state.update(status="error", error="Erreur interne d'exécution. Voir les événements du run.")
+                        run.state.update(status="error", error="Internal execution error. See run events.")
                         run.event("internal_error")
                 finally:
                     with run.lock:
@@ -212,7 +239,7 @@ def make_lab_server(manager, port=8766):
 
         def dispatch(self, method):
             if not self.origin_ok():
-                self.send(403, {"error": "Accès local uniquement"})
+                self.send(403, {"error": "Local access only"})
                 return
             try:
                 path = urlparse(self.path).path
@@ -230,23 +257,23 @@ def make_lab_server(manager, port=8766):
                         elif len(parts) == 3:
                             self.send(200, manager.snapshot(parts[2]))
                         else:
-                            self.send(404, {"error": "Route inconnue"})
+                            self.send(404, {"error": "Unknown route"})
                     elif path in ("/", "/app.js", "/style.css"):
                         file = static / ("index.html" if path == "/" else path[1:])
                         self.send(200, file.read_bytes(), (mimetypes.guess_type(file.name)[0] or "text/plain") + "; charset=utf-8")
                     elif path == "/favicon.ico":
                         self.send(204, b"", "image/x-icon")
                     else:
-                        self.send(404, {"error": "Route inconnue"})
+                        self.send(404, {"error": "Unknown route"})
                     return
                 if not self.headers.get("Content-Type", "").startswith("application/json"):
-                    raise ValueError("Content-Type application/json requis")
+                    raise ValueError("Content-Type application/json required")
                 length = int(self.headers.get("Content-Length", "0"))
                 if not 0 < length <= 2_000_000:
-                    raise ValueError("Taille de requête invalide")
+                    raise ValueError("Invalid request size")
                 body = json.loads(self.rfile.read(length))
                 if not isinstance(body, dict):
-                    raise ValueError("Objet JSON requis")
+                    raise ValueError("JSON object required")
                 if path == "/api/providers":
                     self.send(200, {"providers": manager.registry.save(body)})
                 elif path == "/api/preview":
@@ -258,18 +285,18 @@ def make_lab_server(manager, port=8766):
                 elif len(parts) == 4 and parts[:2] == ["api", "runs"] and parts[3] == "control":
                     self.send(200, manager.control(parts[2], body.get("action")))
                 else:
-                    self.send(404, {"error": "Route inconnue"})
+                    self.send(404, {"error": "Unknown route"})
             except (ValueError, TypeError, KeyError, ProviderError) as exc:
                 self.send(400, {"error": str(exc)})
             except OSError:
-                self.send(500, {"error": "Erreur de lecture ou d'écriture locale"})
+                self.send(500, {"error": "Local read or write error"})
     return ThreadingHTTPServer(("127.0.0.1", port), Handler)
 
 
 def serve_lab(data_dir=ROOT / "data", work_dir=ROOT / "runs/lab", port=8766):
     manager = LabManager(data_dir, work_dir)
     server = make_lab_server(manager, port)
-    print(f"Swarm Lab — http://127.0.0.1:{server.server_port} — aucune clé préconfigurée", flush=True)
+    print(f"Swarm Lab — http://127.0.0.1:{server.server_port} — no preconfigured key", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

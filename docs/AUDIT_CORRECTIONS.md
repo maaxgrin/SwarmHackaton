@@ -1,30 +1,30 @@
-# Corrections de l'audit du 13 septembre 2026
+# Audit corrections — September 13, 2026
 
-Les cinq anomalies reproduites dans le code local sont corrigées. Le rapport initial et ses résultats restent inchangés dans le dossier d'audit.
+The five anomalies reproduced in local code are fixed. The initial report and its results remain unchanged in the audit folder.
 
-| Anomalie | Comportement corrigé | Validation |
+| Anomaly | Fixed behavior | Validation |
 | --- | --- | --- |
-| A1 — Exposition prématurée | Les actions utilisent les notes présentes dans la requête ayant produit leur réponse. Récupérer le tableau ne vaut pas envoi au modèle. Les événements portent des identifiants de requête et d'appel d'outil. | Deux outils dans une même réponse ; note arrivée pendant la génération ; réception à la requête suivante |
-| A2 — Plafond contournable | Chaque tentative compte avant l'envoi. Les erreurs et les reprises conservent le cumul. Les tokens annoncés dans une réponse tronquée ou invalide sont conservés ; un usage inconnu reste signalé. | Plafond de 1 : une seule requête malgré trois tentatives de reprise, 20 tokens d'entrée et 128 de sortie conservés ; OpenAI compatible et Anthropic factices |
-| A3 — Profil variable | Tous les paramètres de fournisseurs sont figés au premier démarrage, avant la première requête. Modifier un profil concerne les prochains essais. Les clés sont liées en mémoire au fournisseur initial et exclues des sauvegardes. | Même modèle et URL pour deux agents du même essai après modification globale ; nouveau profil utilisé dans le nouvel essai ; absence de clés dans les exports et fichiers |
-| A4 — Sauvegarde fragile | Un checkpoint atomique contient l'état et toutes les conversations. Les effets d'une réponse et ses résultats d'outils sont enregistrés ensemble. Les miroirs de compatibilité ne font pas autorité. | Pannes avant validation du checkpoint, pendant les miroirs et entre action et résultat ; anciennes conversations corrompues exportées comme partielles |
-| A5 — Solo libre contradictoire | Le prompt par défaut dépend de l'effectif. Un solo libre ne demande plus de collaborer ; un prompt explicitement personnalisé est préservé. | Prompt absent, null ou explicitement fourni ; aperçu de l'interface en solo et changement d'effectif |
+| A1 — Premature exposure | Actions use notes present in the request that produced their response. Fetching the board does not count as sending to the model. Events carry request and tool-call identifiers. | Two tools in one response; note arriving during generation; receipt on next request |
+| A2 — Bypassable cap | Each attempt is counted before send. Errors and retries keep the cumulative total. Tokens reported in a truncated or invalid response are retained; unknown usage remains flagged. | Cap of 1: only one request despite three retry attempts, 20 input and 128 output tokens retained; fake OpenAI-compatible and Anthropic |
+| A3 — Variable profile | All provider parameters are frozen at first start, before the first request. Editing a profile affects future runs. Keys are bound in memory to the initial provider and excluded from backups. | Same model and URL for two agents in one run after global edit; new profile used in new run; no keys in exports and files |
+| A4 — Fragile persistence | One atomic checkpoint contains state and all conversations. Effects of a response and its tool results are saved together. Compatibility mirrors are not authoritative. | Failures before checkpoint validation, during mirrors, and between action and result; old corrupted conversations exported as partial |
+| A5 — Contradictory free solo | Default prompt depends on headcount. A free solo no longer asks to collaborate; an explicitly custom prompt is preserved. | Prompt absent, null, or explicitly provided; UI preview in solo and headcount change |
 
-## Vérification
+## Verification
 
-- **57 tests réussis**, dont 12 nouvelles régressions dans [test_lab_audit_regressions.py](../tests/test_lab_audit_regressions.py).
-- **8 contrôles d'audit réussis, aucun invariant en échec**, contre 3 réussites et 5 échecs avant correction.
-- **9 704 contrôles du corpus réussis**, sur 100 questions et 200 variantes.
-- Syntaxe JavaScript et diff vérifiés.
-- Interface contrôlée : solo libre sans pairs fictifs, conservation d'un prompt personnalisé et ouverture d'anciens essais. Aucun défaut JavaScript détecté.
-- Exports des archives solo et à huit agents vérifiés après redémarrage du serveur.
+- **57 tests passed**, including 12 new regressions in [test_lab_audit_regressions.py](../tests/test_lab_audit_regressions.py).
+- **8 audit checks passed, no failing invariants**, vs. 3 passed and 5 failed before fixes.
+- **9,704 corpus checks passed**, across 100 questions and 200 variants.
+- JavaScript syntax and diff verified.
+- UI checked: free solo without fictitious peers, custom prompt preserved, opening old runs. No JavaScript defect detected.
+- Solo and eight-agent archive exports verified after server restart.
 
-Les tests de modèles utilisent des fournisseurs factices. Les vérifications de l'interface utilisent des aperçus et des archives ; elles ne mesurent pas le comportement d'un LLM réel.
+Model tests use fake providers. UI checks use previews and archives; they do not measure real LLM behavior.
 
-## Interpréter les anciennes données
+## Interpreting older data
 
-Les nouvelles traces portent `trace_version: 2`. Les archives antérieures ne sont pas réécrites : elles peuvent avoir sous-compté les requêtes échouées et leurs tokens. Des tokens non enregistrés ne peuvent pas être reconstitués par cette correction. Le défaut A1 concerne des outils choisis dans une même réponse ; l'audit initial n'avait pas trouvé ce cas dans les historiques LLM locaux examinés.
+New traces carry `trace_version: 2`. Earlier archives are not rewritten: they may have under-counted failed requests and their tokens. Unlogged tokens cannot be reconstructed by this fix. Defect A1 concerns tools chosen in a single response; the initial audit had not found that case in examined local LLM histories.
 
-Le champ `reported_but_discarded_tokens` de l'ancienne sonde d'audit est calculé comme un total théorique, sans soustraire les tokens enregistrés. Pour vérifier la correction, regarder `recorded_usage` : les 148 tokens de sa réponse tronquée sont maintenant présents. La nouvelle suite vérifie explicitement ces valeurs.
+The legacy audit probe field `reported_but_discarded_tokens` is computed as a theoretical total, without subtracting recorded tokens. To verify the fix, look at `recorded_usage`: the 148 tokens from its truncated response are now present. The new suite explicitly checks those values.
 
-Le checkpoint garantit une dernière sauvegarde cohérente, pas la reconstruction d'une réponse perdue avant son enregistrement. Une tentative réservée avant un incident reste comptée. Une ancienne conversation illisible est signalée comme export partiel, sans inventer son contenu.
+The checkpoint guarantees a last consistent save, not reconstruction of a response lost before logging. An attempt reserved before an incident remains counted. An unreadable old conversation is reported as a partial export, without inventing its content.

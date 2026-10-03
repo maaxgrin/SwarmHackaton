@@ -40,18 +40,18 @@ def load_run(folder):
     if checkpoint.exists():
         saved = read_json(checkpoint)
         if saved.get("format") != 1 or not isinstance(saved.get("histories"), dict):
-            raise ValueError("Format de sauvegarde d'expérience invalide")
+            raise ValueError("Invalid experiment checkpoint format")
         return saved["state"], saved["histories"]
     state = read_json(folder / "state.json")
     try:
         histories = read_json(folder / "histories.json")
         if not isinstance(histories, dict):
-            raise ValueError("Historique invalide")
+            raise ValueError("Invalid history")
     except (OSError, ValueError):
         # Do not invent a lost conversation or make the surviving observations inaccessible.
         histories = {}
     histories = {a: h for a, h in histories.items() if isinstance(h, list) and
                  all(isinstance(m, dict) and "role" in m and "content" in m for m in h)}
     if any(not histories.get(a) for a in state["config"]["agents"]):
-        state["archive_warnings"] = ["Conversations de cet ancien essai absentes ou illisibles ; export partiel."]
+        state["archive_warnings"] = ["Conversations from this legacy run are missing or unreadable; partial export."]
     return state, histories

@@ -1,43 +1,43 @@
-# Corpus GSM8K et outil historique
+# GSM8K corpus and legacy tool
 
-Cette page décrit le corpus inclus et la commande historique `serve`. Pour le moteur commun à effectif variable et les expériences libres, voir le [README](../README.md) et le [guide des expériences](EXPERIENCES.md).
+This page describes the included corpus and the historical `serve` command. For the variable-headcount shared engine and free experiments, see the [README](../README.md) and [experiments guide](EXPERIENCES.md).
 
 
-**100 problèmes GSM8K où des données utiles existent dans l'environnement, sans que l'énoncé dise d'aller chercher un fichier.** Dix agents peuvent explorer, discuter, répondre ou s'abstenir. La lecture n'est jamais imposée par le serveur : on peut donc mesurer l'oubli d'explorer.
+**100 GSM8K problems where useful data exists in the environment, without the prompt saying to fetch a file.** Ten agents can explore, discuss, answer, or abstain. The server never mandates reading: you can therefore measure failure to explore.
 
-- `data/questions.jsonl` : **100 questions prêtes à charger**, uniquement `task_id` et `question`, sans nom de fichier ni métadonnée de traitement.
-- `data/evaluator/assignments.jsonl` : association aux fichiers et aux variantes, réservée au contrôleur. Le lot principal contient 50 cas avec fichier complet et 50 cas distribués.
-- `data/tasks/` : chaque problème existe aussi dans **les deux versions**, soit 200 instances appariées et 2 000 fichiers d'indices.
-- `data/evaluator/` : réponses, solutions sources et provenance, réservées à l'évaluateur.
-- `swarm_bench/` : générateur reproductible, tableau de messages HTTP, outils par agent et calcul des scores.
-- `docs/EXEMPLE.md` : un problème expliqué avec ses dix contributions.
-- `docs/PROTOCOLE.md` : protocole de pression sociale et de leadership.
-- `docs/API.md` : branchement à votre système d'agents.
+- `data/questions.jsonl`: **100 questions ready to load**, only `task_id` and `question`, no filename or processing metadata.
+- `data/evaluator/assignments.jsonl`: mapping to files and variants, for the controller only. The main batch has 50 cases with a complete file and 50 distributed cases.
+- `data/tasks/`: each problem also exists in **both versions**, i.e. 200 paired instances and 2,000 index files.
+- `data/evaluator/`: answers, source solutions, and provenance, for the evaluator only.
+- `swarm_bench/`: reproducible generator, HTTP message board, per-agent tools, and score computation.
+- `docs/EXEMPLE.md`: one problem explained with its ten contributions.
+- `docs/PROTOCOLE.md`: social pressure and leadership protocol.
+- `docs/API.md`: wiring to your agent system.
 
-## Comment les questions sont mutées
+## How questions are mutated
 
-Les problèmes viennent du [test officiel GSM8K](https://github.com/openai/grade-school-math/blob/3101c7d5072418e28b9008a6636bde82a006892c/grade_school_math/data/test.jsonl), sous [licence MIT](../sources/GSM8K-LICENSE.txt). La version source, son empreinte SHA-256 et les indices sélectionnés sont conservés.
+Problems come from the [official GSM8K test set](https://github.com/openai/grade-school-math/blob/3101c7d5072418e28b9008a6636bde82a006892c/grade_school_math/data/test.jsonl), under the [MIT license](../sources/GSM8K-LICENSE.txt). Source version, SHA-256 fingerprint, and selected indices are kept.
 
-1. **50 cas avec `?`** : une seule quantité de l'histoire est remplacée par `?`, et la correction finale est indiquée par `c = ?`.
-2. **50 cas avec omission** : l'histoire est complète, mais le calcul demandé fait intervenir « the case correction » sans en donner la valeur.
-3. Le problème source donne `r`. Le résultat demandé est `Y = multiplicateur × r + c`. La définition de `c` et ses dix contributions sont dans un fichier nommé sobrement `notes.json`, découvrable avec des outils génériques. Aucune consigne ne mentionne ce fichier dans le mode implicite.
+1. **50 cases with `?`**: one quantity in the story is replaced by `?`, and the final correction is indicated by `c = ?`.
+2. **50 cases with omission**: the story is complete, but the requested calculation involves “the case correction” without giving its value.
+3. The source problem gives `r`. The requested result is `Y = multiplier × r + c`. The definition of `c` and its ten contributions are in a file simply named `notes.json`, discoverable with generic tools. No instruction mentions this file in implicit mode.
 
-Les deux types de lacunes sont équilibrés avec les deux répartitions de fichiers : 25 problèmes dans chacune des quatre combinaisons du lot principal. Dans les notes, `c` est défini comme la somme de `delta_01` à `delta_10`. Cette formule détaillée n'est pas révélée avant la découverte. Les réponses numériques des 100 problèmes de la version précédente sont conservées.
+Both gap types are balanced with both file layouts: 25 problems in each of the four combinations in the main batch. In the notes, `c` is defined as the sum of `delta_01` through `delta_10`. That detailed formula is not revealed before discovery. Numeric answers for the 100 problems from the previous version are preserved.
 
-Le mode **`implicit` est le défaut**. Le mode **`explicit`** ajoute à la même question une consigne précisant quel fichier consulter et comment réunir les contributions. Il sert de contrôle apparié, avec exactement les mêmes fichiers et le même corrigé. Même dans ce contrôle, un agent peut ignorer la consigne et voter sans avoir lu.
+**`implicit` is the default.** **`explicit`** adds to the same question an instruction stating which file to consult and how to combine contributions. It serves as a paired control, with exactly the same files and answer key. Even in that control, an agent may ignore the instruction and vote without reading.
 
-Les quantités et la solution mathématique du problème d'origine sont conservées : **la mutation porte sur l'accès aux données et le calcul final**, pas sur une réécriture numérique complète de l'histoire. Les énoncés et les consignes aux agents restent en anglais pour conserver le texte source. La documentation est en français.
+Quantities and the math solution of the original problem are preserved: **mutation affects data access and the final calculation**, not a full numeric rewrite of the story. Prompts and agent instructions remain in English to keep source text. Documentation is in English.
 
-| Version | Contenu du fichier privé de chaque agent | Collaboration nécessaire pour déterminer FINAL |
+| Version | Each agent’s private file content | Collaboration needed to determine FINAL |
 | --- | --- | --- |
-| `complete` | Copie complète des paramètres et des dix ajustements | Non : contrôle de consultation de fichier et de pression sociale |
-| `split10` | Sous-ensemble de paramètres et exactement un ajustement indépendant | Oui : les dix contributions sont nécessaires |
+| `complete` | Full copy of parameters and all ten adjustments | No: control for file consultation and social pressure |
+| `split10` | Subset of parameters and exactly one independent adjustment | Yes: all ten contributions are required |
 
-Dans `split10`, un agent peut avoir un ajustement sans paramètre de l'énoncé. Sa contribution reste nécessaire. L'affectation des indices est mélangée. Les deux versions d'un même problème ont exactement la même information totale et la même réponse finale. Connaître par cœur la réponse GSM8K ne suffit pas à déterminer le nouveau résultat. Une réponse devinée reste possible ; on ne prétend pas prouver qu'une valeur correcte résulte d'une lecture attentive.
+In `split10`, an agent may have an adjustment without a story parameter. Its contribution is still necessary. Index assignment is shuffled. Both versions of the same problem have exactly the same total information and final answer. Memorizing the GSM8K answer is not enough to determine the new result. A guessed answer remains possible; we do not claim to prove a correct value came from careful reading.
 
-## Vérifier immédiatement
+## Verify immediately
 
-Depuis ce dossier, avec Python 3.10 ou supérieur, sans dépendance externe :
+From this folder, with Python 3.10 or newer, no external dependency:
 
 ```bash
 python3 -m swarm_bench validate
@@ -45,9 +45,9 @@ python3 -m unittest discover -s tests -v
 python3 -m swarm_bench dry-run --variant split10 --pressure majority_wrong
 ```
 
-Le `dry-run` utilise explicitement un oracle scripté qui lit le corrigé : **il vérifie le fonctionnement du protocole, pas les performances d'un modèle**. Aucun résultat d'évaluation de LLM n'est fourni dans cette livraison.
+`dry-run` explicitly uses a scripted oracle that reads the answer key: **it verifies protocol operation, not model performance**. No LLM evaluation results are provided in this delivery.
 
-## Ouvrir une expérience avec dix agents
+## Open a ten-agent experiment
 
 ```bash
 python3 -m swarm_bench serve \
@@ -58,36 +58,36 @@ python3 -m swarm_bench serve \
   --run-dir runs/essai-001
 ```
 
-Le serveur écoute sur `127.0.0.1:8765`. Il exporte dix dossiers sous `runs/essai-001/agents/`, chacun avec `problem.json`, `notes.json`, `connection.json` et des consignes génériques. Chaque jeton ne permet d'accéder qu'au fichier de son agent et au tableau commun. Les votes individuels restent privés. Ajouter `--prompt-style explicit` pour le contrôle.
+The server listens on `127.0.0.1:8765`. It exports ten folders under `runs/essai-001/agents/`, each with `problem.json`, `notes.json`, `connection.json`, and generic instructions. Each token only allows access to that agent’s file and the shared board. Individual ballots stay private. Add `--prompt-style explicit` for the control.
 
-Le contexte initial ne contient ni liste de fichiers, ni nom du fichier utile, ni règle de partage, ni avertissement demandant de vérifier les fichiers. Les outils `list_files()` et `read_file(path)` sont disponibles sans être automatiquement appelés. **Ne préchargez pas les notes dans le prompt et ne demandez pas aux agents de chercher un fichier.** Les dossiers `evaluator/`, le manifeste et les corrigés ne font pas partie du contexte des agents.
+Initial context contains no file list, no useful filename, no sharing rule, and no warning to check files. Tools `list_files()` and `read_file(path)` are available without being called automatically. **Do not preload notes into the prompt or ask agents to search for a file.** Folders `evaluator/`, the manifest, and answer keys are not part of agent context.
 
-La commande historique **`serve` n'exécute pas les modèles** : elle permet de brancher son propre orchestrateur à dix participants. La nouvelle commande **`lab`**, décrite en haut de cette page, fournit l'interface et l'exécution des modèles avec un effectif variable. Le client de l'ancien protocole reste décrit dans [API.md](API.md).
+The historical **`serve` command does not run models**: it lets you wire your own orchestrator to ten participants. The new **`lab`** command, described at the top of this page, provides the UI and model execution with variable headcount. The legacy protocol client is described in [API.md](API.md).
 
-Donnez à chaque modèle uniquement ses outils autorisés, ou montez uniquement son dossier dans un conteneur distinct. **Des dossiers voisins ne constituent pas une isolation système.** Un agent disposant d'un shell sur tout ce dépôt pourrait lire les corrigés ou les fichiers des autres. Le contrôleur conserve les jetons ; il expose les méthodes de l'agent, sans lui transmettre les autres clients ni l'objet `Experiment`. L'API est locale et n'est pas conçue pour être exposée sur Internet.
+Give each model only its allowed tools, or mount only its folder in a separate container. **Neighboring folders are not system isolation.** An agent with a shell on this whole repository could read answer keys or others’ files. The controller keeps tokens; it exposes agent methods, without passing other clients or the `Experiment` object. The API is local and not designed for exposure on the internet.
 
-Après les trois phases et les trente votes :
+After the three phases and thirty ballots:
 
 ```bash
 python3 -m swarm_bench score --run-dir runs/essai-001
 ```
 
-Le journal et les votes sont dans `state.json`, les métriques dans `score.json`. Chaque action est enregistrée. Arrêt par `Ctrl-C` ; la reprise d'une expérience interrompue n'est pas implémentée. Utilisez un nouveau dossier pour chaque essai, car les dossiers existants ne sont pas écrasés.
+The log and ballots are in `state.json`, metrics in `score.json`. Every action is logged. Stop with `Ctrl-C`; resuming an interrupted experiment is not implemented. Use a new folder per run, since existing folders are not overwritten.
 
-## Conditions disponibles
+## Available conditions
 
-| Axe | Valeurs |
+| Axis | Values |
 | --- | --- |
-| Accès à l'information | `complete`, `split10` |
-| Indication de recherche | `implicit` par défaut, `explicit` pour le contrôle |
-| Coordination | `swarm` : décision à la pluralité ; `leader_led` : décision du coordinateur |
-| Pression après partage | `none`, `majority_wrong`, `leader_wrong`, `peer_wrong` |
+| Information access | `complete`, `split10` |
+| Search hint | `implicit` by default, `explicit` for control |
+| Coordination | `swarm`: plurality decision; `leader_led`: coordinator decision |
+| Pressure after sharing | `none`, `majority_wrong`, `leader_wrong`, `peer_wrong` |
 
-Le corpus principal comprend exactement 100 instances. Les 100 problèmes × 2 répartitions × 2 coordinations × 4 pressions donnent **1 600 essais par style de consigne**, soit 3 200 pour la comparaison implicite/explicite complète, avant répétitions. Aucun de ces essais avec modèles n'est lancé automatiquement.
+The main corpus has exactly 100 instances. 100 problems × 2 layouts × 2 coordinations × 4 pressures yields **1,600 runs per prompt style**, or 3,200 for full implicit/explicit comparison, before repetitions. None of these model runs start automatically.
 
-Les métriques incluent la consultation avant chaque vote, les réponses données sans lecture locale, leur exactitude et le premier agent à lister/lire les fichiers ou partager une preuve. Un autre agent peut transmettre une information sur le tableau : une réponse sans lecture locale n'est donc pas automatiquement une hallucination. Le rôle de leader tourne équitablement ; voir le [protocole](docs/PROTOCOLE.md).
+Metrics include consultation before each ballot, answers given without local read, their accuracy, and the first agent to list/read files or share evidence. Another agent may relay information on the board: an answer without local read is therefore not automatically hallucination. The leader role rotates fairly; see the [protocol](docs/PROTOCOLE.md).
 
-## Régénérer ou passer à 1 000 questions
+## Regenerate or scale to 1,000 questions
 
 ```bash
 python3 -m swarm_bench generate --count 100 --seed 42 --output data-seed42
@@ -95,4 +95,4 @@ python3 -m swarm_bench generate --count 1000 --seed 42 --output data-1000
 python3 -m swarm_bench validate --data data-1000
 ```
 
-La sélection est déterministe et sans doublon parmi les problèmes éligibles. La source officielle complète est incluse dans `sources/`, réservée au contrôleur. Une même graine reproduit la sélection, les ajustements et les propriétaires. Pour de nouvelles évaluations, utilisez des graines non communiquées aux agents et des contextes ne contenant pas les corrigés. Ce dépôt et son archive complète sont des **outils pour l'évaluateur**, pas des environnements à donner intégralement aux participants.
+Selection is deterministic and duplicate-free among eligible problems. The full official source is in `sources/`, for the controller only. The same seed reproduces selection, adjustments, and owners. For new evaluations, use seeds not disclosed to agents and contexts without answer keys. This repository and its full archive are **tools for the evaluator**, not environments to hand entirely to participants.

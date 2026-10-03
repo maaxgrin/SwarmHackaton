@@ -39,7 +39,7 @@ def check_provider_error(data, usage=None):
     if error:
         code = error.get("code") if isinstance(error, dict) else None
         code = code if isinstance(code, int) else None
-        raise ProviderError(f"Erreur fournisseur dans le JSON (code {code or 'non précisé'}).",
+        raise ProviderError(f"Provider error in JSON (code {code or 'unspecified'}).",
                             usage=usage, retryable=code in (408, 429, 500, 502, 503, 504),
                             diagnostic={**response_diagnostic(data), "provider_error_code": code})
 
@@ -66,37 +66,37 @@ class ProviderRegistry:
 
     def save(self, payload):
         if not isinstance(payload, dict):
-            raise ValueError("Profil incorrect")
+            raise ValueError("Invalid profile")
         fields = {"id", "name", "kind", "base_url", "model", "key_env", "token_parameter", "reasoning_effort", "api_key", "clear_key"}
         if set(payload) - fields:
-            raise ValueError("Champ de profil inconnu")
+            raise ValueError("Unknown profile field")
         profile = {k: str(payload.get(k, "")).strip() for k in fields - {"api_key", "clear_key"}}
         if not re.fullmatch(r"[a-zA-Z0-9_-]{1,60}", profile["id"]):
-            raise ValueError("Identifiant de profil invalide")
+            raise ValueError("Invalid profile ID")
         if not profile["name"] or len(profile["name"]) > 100 or len(profile["model"]) > 200:
-            raise ValueError("Nom de profil ou de modèle invalide")
+            raise ValueError("Invalid profile or model name")
         if profile["kind"] not in ("openai_compatible", "openai_responses", "anthropic"):
-            raise ValueError("Format de fournisseur inconnu")
+            raise ValueError("Unknown provider format")
         if profile["reasoning_effort"] not in ("", "none", "low", "medium", "high", "xhigh", "max"):
-            raise ValueError("Réglage de raisonnement invalide")
+            raise ValueError("Invalid reasoning setting")
         if profile["kind"] == "anthropic" and profile["reasoning_effort"]:
-            raise ValueError("Ce réglage de raisonnement utilise le format compatible OpenAI")
+            raise ValueError("This reasoning setting uses the OpenAI-compatible format")
         if profile["key_env"] and not re.fullmatch(r"[A-Z_][A-Z0-9_]{0,99}", profile["key_env"]):
-            raise ValueError("Nom de variable de clé invalide")
+            raise ValueError("Invalid key environment variable name")
         if profile["base_url"]:
             u = urlparse(profile["base_url"])
             if not u.hostname or u.username or u.password or u.query or u.fragment:
-                raise ValueError("URL de base invalide")
+                raise ValueError("Invalid base URL")
             if u.scheme != "https" and not (u.scheme == "http" and u.hostname in ("127.0.0.1", "localhost", "::1")):
-                raise ValueError("HTTPS requis, sauf pour un serveur local")
+                raise ValueError("HTTPS required except for a local server")
         profile["base_url"] = profile["base_url"].rstrip("/")
         profile["token_parameter"] = ("max_output_tokens" if profile["kind"] == "openai_responses"
                                       else profile["token_parameter"] or "max_tokens")
         allowed_token_parameters = ("max_output_tokens",) if profile["kind"] == "openai_responses" else ("max_tokens", "max_completion_tokens")
         if profile["token_parameter"] not in allowed_token_parameters:
-            raise ValueError("Paramètre de budget inconnu")
+            raise ValueError("Unknown budget parameter")
         if any(len(v) > 2000 for v in profile.values()):
-            raise ValueError("Profil trop long")
+            raise ValueError("Profile too long")
         with self.lock:
             self.profiles = [p for p in self.profiles if p["id"] != profile["id"]] + [profile]
             if payload.get("clear_key"):
@@ -111,12 +111,12 @@ class ProviderRegistry:
         with self.lock:
             p = next((p for p in self.profiles if p["id"] == profile_id), None)
             if p is None:
-                raise ProviderError("Profil de modèle introuvable")
+                raise ProviderError("Model profile not found")
             if not p["base_url"] or not p["model"]:
-                raise ProviderError(f"Compléter l’URL et le modèle du profil {p['name']}")
+                raise ProviderError(f"Complete the URL and model for profile {p['name']}")
             key = self._key(p)
             if not key and urlparse(p["base_url"]).hostname not in ("127.0.0.1", "localhost", "::1"):
-                raise ProviderError(f"Clé absente pour {p['name']}. Aucun appel envoyé.")
+                raise ProviderError(f"No key for {p['name']}. No call sent.")
             return copy.deepcopy(p), key
 
 
@@ -206,18 +206,18 @@ def completion(profile, key, messages, tools, output_budget, temperature=None):
         with build_opener(NoRedirect()).open(request, timeout=timeout) as response:
             raw = response.read(4_000_001)
             if len(raw) > 4_000_000:
-                raise ProviderError("Réponse fournisseur trop volumineuse")
+                raise ProviderError("Provider response too large")
             data = json.loads(raw)
     except HTTPError as exc:
         # Never echo the response body, URL or headers: a gateway may reflect a key.
-        raise ProviderError(f"Le fournisseur a répondu HTTP {exc.code}. Vérifier son profil et ses limites.",
+        raise ProviderError(f"Provider returned HTTP {exc.code}. Check the profile and limits.",
                             retryable=exc.code in (408, 429, 500, 502, 503, 504), diagnostic={"http_status": exc.code}) from None
     except TimeoutError:
-        raise ProviderError(f"Le fournisseur n’a pas répondu sous {timeout} secondes.") from None
+        raise ProviderError(f"Provider did not respond within {timeout} seconds.") from None
     except (URLError, OSError, ValueError):
-        raise ProviderError("Échec de connexion ou réponse JSON invalide du fournisseur") from None
+        raise ProviderError("Connection failed or invalid JSON from provider") from None
     if not isinstance(data, dict):
-        raise ProviderError("Format de réponse incompatible avec le profil choisi")
+        raise ProviderError("Response format incompatible with the chosen profile")
     usage = data.get("usage")
     reported_usage = None
     if isinstance(usage, dict):
@@ -237,10 +237,10 @@ def completion(profile, key, messages, tools, output_budget, temperature=None):
         if (data.get("stop_reason") == "max_tokens" or
                 data.get("status") == "incomplete" and (data.get("incomplete_details") or {}).get("reason") == "max_output_tokens" or
                 any(c.get("finish_reason") == "length" for c in data.get("choices", []))):
-            raise ProviderError("La réponse a atteint le plafond de tokens avant de se terminer. Augmenter le budget de sortie.", usage=reported_usage)
+            raise ProviderError("Response hit the token limit before finishing. Increase the output budget.", usage=reported_usage)
         if profile["kind"] == "openai_responses":
             if data.get("status") != "completed" or not isinstance(data.get("output"), list):
-                raise ProviderError("La réponse Responses n'a pas abouti.", usage=reported_usage)
+                raise ProviderError("Responses API call did not complete.", usage=reported_usage)
             items = data["output"]
             msg = {"role": "assistant", "content": "\n".join(
                 block.get("text", block.get("refusal", "")) for item in items if item["type"] == "message"
@@ -275,5 +275,5 @@ def completion(profile, key, messages, tools, output_budget, temperature=None):
             msg["tool_calls"] = calls
         return msg, reported_usage
     except (AttributeError, KeyError, TypeError, IndexError):
-        raise ProviderError("Format de réponse incompatible avec le profil choisi", usage=reported_usage,
+        raise ProviderError("Response format incompatible with the chosen profile", usage=reported_usage,
                             diagnostic=response_diagnostic(data)) from None

@@ -102,7 +102,7 @@ class AuditRegressions(unittest.TestCase):
                     self.manager.control(run.id, "play")
                     self.manager.workers[run.id].join(3)
                     for _ in range(3):
-                        with self.assertRaisesRegex(ValueError, "Plafond"):
+                        with self.assertRaisesRegex(ValueError, "Call limit"):
                             self.manager.control(run.id, "play")
                     self.assertEqual(factory.return_value.open.call_count, 1)
                 usage = run.state["usage"]["agent_01"]
@@ -119,7 +119,7 @@ class AuditRegressions(unittest.TestCase):
             factory.return_value.open.side_effect = TimeoutError()
             with self.assertRaises(ProviderError):
                 run.live_call("agent_01")
-            with self.assertRaisesRegex(ValueError, "Plafond"):
+            with self.assertRaisesRegex(ValueError, "Call limit"):
                 run.live_call("agent_01")
             self.assertEqual(factory.return_value.open.call_count, 1)
         usage = run.state["usage"]["agent_01"]

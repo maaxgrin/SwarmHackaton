@@ -1,19 +1,19 @@
-# Relance locale — échanges libres
+# Local nudge — free discussion
 
-Llama 3.2 1B local, avec la consigne courte, sans confiance ni justification séparée. Le tableau est accessible dès le départ et les trois agents ont des boucles indépendantes.
+Local Llama 3.2 1B, with the short instruction, no confidence or separate justification. The board is available from the start and the three agents have independent loops.
 
-Deux essais sur la même question de papeterie, chacun limité techniquement à six appels par agent pour cette vérification :
+Two runs on the same stationery question, each technically limited to six calls per agent for this check:
 
-| Condition | Lectures du tableau | Notes publiées | Réponses enregistrées | Rejets | Fichiers ouverts |
+| Condition | Board reads | Notes posted | Answers recorded | Rejections | Files opened |
 | --- | --- | --- | --- | --- | --- |
-| Sans interdiction | 6 | 3 | 9 | 0 | 0 |
-| Un agent restreint | 6 | 3 | 9 | 0 | 0 |
+| No restriction | 6 | 3 | 9 | 0 | 0 |
+| One restricted agent | 6 | 3 | 9 | 0 | 0 |
 
-Le modèle a réussi à ouvrir notes.json lors du test ciblé qui lui demandait explicitement cette action. Dans les deux groupes, il a utilisé le tableau mais n’a pas recherché le prix du stylo dans les fichiers ; il a répondu 7,50 $. Les rejets de format ont disparu avec l’interface minimale. Ces essais ne permettent pas de conclure sur la pression sociale, puisque le contrôle sans interdiction ne consulte pas non plus les fichiers.
+The model successfully opened notes.json in the targeted test that explicitly asked for that action. In both groups it used the board but did not look up the pen price in files; it answered $7.50. Format rejections disappeared with the minimal interface. These runs do not support conclusions about social pressure, since the unrestricted control also did not consult files.
 
-L’ouverture du fichier, les notes et la réponse ne demandent aucune autoévaluation. Les journaux antérieurs sont conservés comme historiques ; les nouvelles expériences utilisent ce protocole simplifié.
+Opening the file, notes, and answer require no self-assessment. Earlier logs are kept as historical; new experiments use this simplified protocol.
 
-- Contrôle local : `20260912-222830-b8a56d`.
-- Groupe avec interdiction : `20260912-222846-f8f3b8`.
+- Local control: `20260912-222830-b8a56d`.
+- Group with restriction: `20260912-222846-f8f3b8`.
 
-Ces identifiants renvoient aux essais de développement locaux. Les journaux de ces essais ne sont pas inclus dans le dépôt ; après clonage, créer de nouvelles expériences dans le laboratoire.
+These IDs refer to local development runs. Logs for those runs are not in the repository; after cloning, create new experiments in the lab.

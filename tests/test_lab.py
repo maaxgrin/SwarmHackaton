@@ -305,7 +305,7 @@ class ProviderTests(unittest.TestCase):
         with patch("swarm_bench.providers.build_opener") as factory:
             factory.return_value.open.return_value.__enter__.return_value.read.return_value = json.dumps({
                 "choices": [{"finish_reason": "length", "message": {"content": ""}}]}).encode()
-            with self.assertRaisesRegex(ProviderError, "plafond de tokens"):
+            with self.assertRaisesRegex(ProviderError, "token limit"):
                 completion({"kind": "openai_compatible", "base_url": "http://127.0.0.1:11434/v1", "model": "test"}, "", [], [], 100)
 
     def test_empty_profiles_and_keys_are_not_written_or_returned(self):

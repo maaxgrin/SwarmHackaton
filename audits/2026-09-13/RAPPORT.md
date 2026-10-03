@@ -1,106 +1,106 @@
-# Audit de l'environnement des agents — Swarm Lab
+# Agent environment audit — Swarm Lab
 
-**Date : 13 septembre 2026. Verdict : la base fonctionne, mais deux défauts prioritaires empêchent de considérer les mesures et les budgets comme entièrement fiables.** Cinq anomalies ont été reproduites. L'isolation des fichiers, les outils désactivés et les boucles normales respectent les contrôles effectués.
+**Date: September 13, 2026. Verdict: the foundation works, but two priority defects prevent treating measurements and budgets as fully reliable.** Five anomalies were reproduced. File isolation, disabled tools, and normal loops passed checks performed.
 
-L'audit porte sur le laboratoire du projet `SprintHF`, son moteur `LabRun`, ses adaptateurs, son serveur local et ses journaux. Il ne porte pas sur la configuration générale de Codex. Le point de départ est le commit `0e9be46`, avec sept fichiers déjà modifiés localement, notamment le moteur et les tests. Les constats décrivent ce code local. Les seuls fichiers ajoutés par cet audit se trouvent dans ce dossier.
+The audit covers the project `SprintHF` lab, its `LabRun` engine, adapters, local server, and logs. It does not cover general Codex configuration. Starting point is commit `0e9be46`, with seven files already modified locally, including the engine and tests. Findings describe this local code. The only files added by this audit are in this folder.
 
-## Vérifications effectuées
+## Checks performed
 
-| Vérification | Résultat |
+| Check | Result |
 | --- | --- |
-| `python3 -m unittest discover -s tests -v` | **45 tests réussis**, incluant le laboratoire et l'ancien protocole |
-| `python3 -m swarm_bench validate` | **100 questions, 200 variantes, 9 704 contrôles réussis** |
-| Reproductions ciblées de cet audit | **3 contrôles réussis, 5 invariants en échec** |
-| Serveur en cours sur `127.0.0.1:8766` | Accessible ; 100 tâches et les cinq outils attendus |
-| Aperçu du serveur comparé au code sur disque | Identique pour le solo peer pressure avec restriction en tête et le solo libre |
-| Ollama sur `127.0.0.1:11434` | Accessible ; les quatre profils locaux renseignés référencent des modèles installés |
-| Cinquième profil | Brouillon sans URL ni modèle ; il n'est pas prêt à démarrer |
-| Historique local | 27 essais recensés, dont 24 marqués `live_models` et trois démonstrations |
+| `python3 -m unittest discover -s tests -v` | **45 tests passed**, including lab and legacy protocol |
+| `python3 -m swarm_bench validate` | **100 questions, 200 variants, 9,704 checks passed** |
+| Targeted reproductions from this audit | **3 checks passed, 5 invariants failed** |
+| Server running on `127.0.0.1:8766` | Reachable; 100 tasks and five expected tools |
+| Server preview compared to code on disk | Identical for peer pressure solo with restriction at top and free solo |
+| Ollama on `127.0.0.1:11434` | Reachable; four configured local profiles reference installed models |
+| Fifth profile | Draft without URL or model; not ready to start |
+| Local history | 27 runs listed, 24 marked `live_models` and three demos |
 
-Les sondes utilisent des fournisseurs factices et des dossiers temporaires. Aucun nouvel appel de génération LLM n'a été lancé. L'accès au serveur existant s'est limité à la lecture et à deux aperçus sans création d'essai. Le diagnostic ne certifie donc pas la qualité actuelle des réponses de chaque modèle réel.
+Probes use fake providers and temp folders. No new LLM generation call was launched. Access to the existing server was limited to read and two previews without creating a run. The diagnosis therefore does not certify current quality of each real model’s responses.
 
-Les traces locales ont été examinées sans les recopier dans ce dossier. Elles couvrent plusieurs versions du moteur : elles ne constituent pas toutes des validations du code actuel.
+Local traces were examined without copying them into this folder. They span several engine versions: they are not all validations of current code.
 
-## Anomalies confirmées
+## Confirmed anomalies
 
-### A1 — P1 : une lecture est classée « après exposition » avant que le modèle ait reçu les messages
+### A1 — P1: a read is classified “after exposure” before the model received messages
 
-**Code :** [lab_engine.py](../../swarm_bench/lab_engine.py), lignes 311–314 et 401–425.
+**Code:** [lab_engine.py](../../swarm_bench/lab_engine.py), lines 311–314 and 401–425.
 
-Un pair publie une note. L'agent restreint, qui ne l'a pas encore reçue, produit **une seule réponse** contenant deux appels : `read_board`, puis `read_file`. Le moteur exécute le premier outil et met immédiatement à jour `exposures`. Il exécute ensuite le second et classe la lecture comme postérieure à une exposition aux pairs.
+A peer posts a note. The restricted agent, which has not received it yet, produces **one response** with two calls: `read_board`, then `read_file`. The engine runs the first tool and immediately updates `exposures`. It then runs the second and classifies the read as after peer exposure.
 
-La reproduction donne `after_peer_exposure = 1` et `before_peer_exposure = 0`, alors que le contenu de la note ne figurait dans **aucune requête envoyée au modèle**. Les deux décisions d'outils étaient déjà produites avant leur exécution.
+Reproduction gives `after_peer_exposure = 1` and `before_peer_exposure = 0`, while note content was in **no request sent to the model**. Both tool decisions were already produced before execution.
 
-**Conséquence :** la mesure confond l'ordre d'exécution des outils avec les informations disponibles lorsque le modèle a choisi son action. Le nombre de transgressions reste correct, mais leur classement temporel peut être faux.
+**Consequence:** measurement confuses tool execution order with information available when the model chose its action. Transgression count stays correct, but temporal classification may be wrong.
 
-**Correction proposée :** conserver, pour chaque réponse du modèle, les notes incluses dans sa requête. Attribuer aux actions de cette réponse cette exposition préalable. Les résultats de `read_board` deviennent disponibles pour une décision ultérieure. Distinguer dans les traces « résultat d'outil récupéré » et « résultat envoyé au modèle », avec des identifiants de requête et d'appel.
+**Proposed fix:** keep, for each model response, notes included in its request. Attribute to actions in that response that prior exposure. `read_board` results become available for a later decision. Distinguish in traces “tool result retrieved” and “result sent to model”, with request and call ids.
 
-**Portée constatée :** défaut reproduit avec un modèle factice ; aucun message contenant simultanément `read_board` et `read_file` n'a été retrouvé dans les 24 historiques LLM locaux examinés. Cet audit n'attribue donc pas ce défaut aux transgressions déjà observées.
+**Scope observed:** defect reproduced with fake model; no message simultaneously containing `read_board` and `read_file` was found in the 24 examined local LLM histories. This audit therefore does not attribute this defect to transgressions already observed.
 
-### A2 — P1 : les réponses tronquées échappent au compteur et au plafond d'appels
+### A2 — P1: truncated responses escape call counter and cap
 
-**Code :** [providers.py](../../swarm_bench/providers.py), lignes 153–168 ; [lab_engine.py](../../swarm_bench/lab_engine.py), lignes 401–410 et 438–440 ; [lab_server.py](../../swarm_bench/lab_server.py), lignes 104–154.
+**Code:** [providers.py](../../swarm_bench/providers.py), lines 153–168; [lab_engine.py](../../swarm_bench/lab_engine.py), lines 401–410 and 438–440; [lab_server.py](../../swarm_bench/lab_server.py), lines 104–154.
 
-L'adaptateur lève une erreur lorsque la réponse atteint le plafond de tokens. Le compteur n'est incrémenté qu'après un retour réussi de l'adaptateur. La requête effectivement effectuée et les tokens annoncés par cette réponse sont perdus pour la comptabilité. Un essai en erreur peut ensuite être repris avec le même compteur.
+The adapter raises when the response hits the token cap. The counter increments only after a successful adapter return. The request actually made and tokens reported by that response are lost for accounting. An errored run can then resume with the same counter.
 
-**Reproduction :** avec `call_limit = 1`, trois démarrages/reprises produisent **trois requêtes HTTP simulées**, mais les compteurs restent à **zéro appel et zéro token**. Les réponses factices annoncent au total 444 tokens qui ne sont pas enregistrés.
+**Reproduction:** with `call_limit = 1`, three start/resume cycles produce **three simulated HTTP requests**, but counters stay at **zero calls and zero tokens**. Fake responses report 444 tokens total that are not recorded.
 
-**Conséquence :** sous-estimation des ressources consommées et dépassement du budget cumulé par reprises successives. Il n'y a pas de relance automatique infinie ; le dépassement reproduit passe par « Reprendre ». Des erreurs de troncature existent aussi dans les historiques locaux, sans que leur coût puisse être reconstitué depuis ces compteurs.
+**Consequence:** underestimation of resources consumed and exceeding cumulative budget via successive resumes. There is no infinite automatic retry; reproduced overrun goes through “Resume”. Truncation errors also exist in local histories, without cost reconstructable from those counters.
 
-**Correction proposée :** comptabiliser chaque tentative d'appel avant l'envoi, distinguer tentatives, succès et erreurs, puis conserver l'usage disponible même si la réponse est inutilisable. Appliquer le plafond au cumul des tentatives, reprises comprises. Ne pas compter une validation de profil échouée avant tout appel comme une requête envoyée.
+**Proposed fix:** count each call attempt before send, distinguish attempts, successes, and errors, then keep available usage even if the response is unusable. Apply cap to cumulative attempts, including resumes. Do not count failed profile validation before any call as a sent request.
 
-### A3 — P2 : modifier un profil global change le modèle d'un essai existant
+### A3 — P2: editing a global profile changes an existing run’s model
 
-**Code :** [lab_engine.py](../../swarm_bench/lab_engine.py), lignes 401–411 ; [providers.py](../../swarm_bench/providers.py), lignes 70–90.
+**Code:** [lab_engine.py](../../swarm_bench/lab_engine.py), lines 401–411; [providers.py](../../swarm_bench/providers.py), lines 70–90.
 
-Chaque appel résout à nouveau le profil global par son identifiant. Dans la reproduction, le premier appel utilise `fake-A`. Après modification du même profil, le deuxième appel du même agent et du même essai utilise `fake-B`, alors que la configuration de l'essai conserve le même identifiant de profil.
+Each call resolves the global profile again by id. In reproduction, first call uses `fake-A`. After editing the same profile, the second call of the same agent and run uses `fake-B`, while run config keeps the same profile id.
 
-**Conséquence :** risque de changer involontairement une condition expérimentale en préparant d'autres expériences ou entre une pause et une reprise. Les événements `model_response` conservent correctement le profil réellement employé ; la dérive reste détectable dans l'export détaillé.
+**Consequence:** risk of involuntarily changing an experimental condition while preparing other experiments or between pause and resume. `model_response` events correctly keep the profile actually used; drift remains detectable in detailed export.
 
-**Correction proposée :** figer une copie des paramètres non secrets de chaque profil au premier démarrage. Une modification globale doit s'appliquer aux nouveaux essais. Si un changement en cours d'essai est souhaité, en faire une intervention explicite et journalisée. Aucun gel de secret en clair sur disque n'est nécessaire.
+**Proposed fix:** freeze a copy of each profile’s non-secret parameters at first start. A global edit should apply to new runs. If mid-run change is desired, make it an explicit logged intervention. No need to freeze plaintext secrets on disk.
 
-### A4 — P2 : une interruption de sauvegarde peut rendre un historique inexploitable
+### A4 — P2: a save interruption can make a history unusable
 
-**Code :** [lab_engine.py](../../swarm_bench/lab_engine.py), lignes 269–276 ; [common.py](../../swarm_bench/common.py), fonction `write_json` ; [lab_server.py](../../swarm_bench/lab_server.py), lignes 75–102.
+**Code:** [lab_engine.py](../../swarm_bench/lab_engine.py), lines 269–276; [common.py](../../swarm_bench/common.py), function `write_json`; [lab_server.py](../../swarm_bench/lab_server.py), lines 75–102.
 
-`state.json` est remplacé via un fichier temporaire. `histories.json` est réécrit directement, avec troncature du précédent contenu. Une interruption pendant cette écriture peut laisser du JSON incomplet.
+`state.json` is replaced via a temp file. `histories.json` is rewritten directly, truncating previous content. Interruption during that write can leave incomplete JSON.
 
-**Reproduction avec panne injectée :** une écriture d'historique est interrompue après un fragment de JSON. Après rechargement du gestionnaire, l'essai apparaît dans les archives, mais son export échoue avec `JSONDecodeError`.
+**Reproduction with injected failure:** a history write is interrupted after a JSON fragment. After reloading the manager, the run appears in archives but export fails with `JSONDecodeError`.
 
-**Conséquence :** perte de consultabilité et d'export d'un essai après incident d'écriture ou arrêt au mauvais moment. Aucune corruption de ce type n'a été constatée dans les fichiers locaux lus : il s'agit d'un test de résistance aux pannes.
+**Consequence:** loss of viewability and export after write incident or stop at the wrong moment. No corruption of this type was seen in read local files: it is a fault-injection test.
 
-**Correction proposée :** remplacer également les historiques de manière atomique et préserver la dernière version valide. Pour garantir la cohérence entre état et conversations après incident, employer un instantané commun ou des générations d'instantanés avec un pointeur de validation. Tester aussi une interruption entre la sauvegarde d'une action et celle de son résultat dans l'historique.
+**Proposed fix:** also replace histories atomically and preserve last valid version. To guarantee consistency between state and conversations after incident, use a common snapshot or snapshot generations with a validation pointer. Also test interruption between saving an action and saving its result in history.
 
-### A5 — P2 : le prompt solo libre demande une collaboration avec des agents inexistants
+### A5 — P2: free solo prompt asks to collaborate with nonexistent agents
 
-**Code :** [lab_engine.py](../../swarm_bench/lab_engine.py), lignes 44, 120–122 et 239–244.
+**Code:** [lab_engine.py](../../swarm_bench/lab_engine.py), lines 44, 120–122 and 239–244.
 
-Avec `scenario = custom`, un agent et le prompt commun par défaut, le système indique d'abord que l'agent travaille seul, puis lui demande de travailler avec les autres participants. Le défaut a aussi été confirmé via l'aperçu du serveur actuellement ouvert.
+With `scenario = custom`, one agent, and default common prompt, the system first says the agent works alone, then asks it to work with other participants. The defect was also confirmed via preview on the currently open server.
 
-**Conséquence :** le témoin solo libre reçoit des instructions contradictoires et peut chercher des contributions qui n'existent pas. Le solo du préréglage peer pressure passe ses tests ; c'est la branche libre qui manque de couverture.
+**Consequence:** the free solo control receives contradictory instructions and may seek contributions that do not exist. Peer pressure preset solo passes its tests; it is the free branch that lacks coverage.
 
-**Correction proposée :** choisir un défaut commun adapté à l'effectif, tout en conservant un prompt commun explicitement personnalisé par le chercheur. Ajouter un test couvrant `custom` avec un agent et un prompt absent ou `null`.
+**Proposed fix:** choose a common default suited to headcount, while keeping a researcher-explicit custom common prompt. Add a test covering `custom` with one agent and absent or `null` prompt.
 
-## Fonctionnements confirmés et limites
+## Confirmed behavior and limits
 
-- **Fichiers privés :** six formes de chemins hors périmètre sont rejetées dans la sonde supplémentaire. Une lecture autorisée renvoie uniquement le fichier de l'agent appelant. Les contenus sont fournis par le dictionnaire privé du moteur, sans accès shell.
-- **Outils :** un outil désactivé est refusé à l'exécution. La restriction textuelle de non-lecture reste volontairement transgressable, conformément au protocole.
-- **Prompts :** les tests vérifient que les restrictions privées ne sont pas ajoutées aux prompts des pairs, que la position en tête fonctionne et que les fichiers ne sont pas préchargés.
-- **Coordination :** les tests vérifient le démarrage indépendant des agents, l'accès immédiat au tableau, les règles de pluralité et de chef, ainsi que la distinction entre publication explicite et automatique.
-- **Budget normal :** les appels réussis d'une boucle d'outils s'arrêtent au plafond prévu. Le problème A2 concerne les appels échoués, notamment les réponses tronquées.
-- **Pause, reprise et arrêt :** les sondes confirment l'absence d'appels suivants après prise en compte de la commande et la reprise après pause. En revanche, la requête HTTP déjà engagée va à son terme et **ses outils sont encore exécutés**, y compris après une demande d'arrêt. Les événements `operator_stop` marquent donc une demande, pas une coupure immédiate des observations. Le délai HTTP local configuré peut atteindre 600 secondes.
-- **Secrets et archives :** les tests existants vérifient qu'une clé de test n'est ni persistée ni retournée dans les profils, que les redirections fournisseurs sont refusées et que les origines tierces sont rejetées. Le rechargement des archives ne relance aucun modèle.
+- **Private files:** six out-of-scope path forms are rejected in the extra probe. An authorized read returns only the calling agent’s file. Contents come from the engine’s private dict, without shell access.
+- **Tools:** a disabled tool is refused at execution. Textual no-read restriction remains intentionally transgressable, per protocol.
+- **Prompts:** tests verify private restrictions are not added to peers’ prompts, top position works, and files are not preloaded.
+- **Coordination:** tests verify independent agent start, immediate board access, plurality and leader rules, and distinction between explicit and automatic publication.
+- **Normal budget:** successful tool-loop calls stop at the intended cap. Problem A2 concerns failed calls, notably truncated responses.
+- **Pause, resume, stop:** probes confirm no further calls after command is honored and resume after pause. However, an HTTP request already in flight completes and **its tools are still executed**, including after stop request. `operator_stop` events mark a request, not immediate cutoff of observations. Configured local HTTP delay can reach 600 seconds.
+- **Secrets and archives:** existing tests verify a test key is neither persisted nor returned in profiles, provider redirects are refused, and third-party origins are rejected. Reloading archives does not relaunch any model.
 
-Le serveur reste destiné à l'évaluateur local. L'isolation testée est celle des outils proposés aux LLM ; elle ne transforme pas l'ensemble du dépôt en sandbox pour un agent auquel on donnerait séparément un shell.
+The server remains for the local evaluator. Tested isolation is that of tools offered to LLMs; it does not make the whole repository a sandbox for an agent given a shell separately.
 
-## Reproduire et décider
+## Reproduce and decide
 
-Depuis la racine du projet :
+From project root:
 
 ```bash
 python3 audits/2026-09-13/check_environment.py
 ```
 
-Le script utilise uniquement la bibliothèque standard, produit du JSON et renvoie **le code 1 tant qu'au moins un invariant échoue**. Les résultats de cette exécution sont conservés dans [results.json](results.json). Il n'écrit aucun essai dans `runs/lab` et n'ouvre aucune connexion réseau.
+The script uses only the standard library, produces JSON, and returns **exit code 1 while at least one invariant fails**. Results of that run are kept in [results.json](results.json). It writes no run under `runs/lab` and opens no network connection.
 
-**Priorité : corriger A1 et A2 avant une campagne comparative, puis A3 à A5.** Ajouter les cas correspondants à la suite de non-régression et refaire un court parcours avec les modèles locaux choisis permettra ensuite de distinguer les garanties du moteur des capacités réelles de ces modèles. Les démonstrations scriptées et les tests factices ne suffisent pas à établir qu'un modèle respecte une consigne ou cède à la pression.
+**Priority: fix A1 and A2 before a comparative campaign, then A3–A5.** Add corresponding cases to the regression suite and redo a short path with chosen local models to then distinguish engine guarantees from those models’ real capabilities. Scripted demos and fake tests are not enough to establish that a model follows an instruction or yields to pressure.

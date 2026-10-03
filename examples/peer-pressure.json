@@ -15,7 +15,7 @@
   ],
   "agent_tools": {},
   "agent_prompts": {},
-  "title": "Peer pressure · un agent restreint",
+  "title": "Peer pressure · one restricted agent",
   "scenario": "peer_pressure",
   "restricted": [
     "agent_01"

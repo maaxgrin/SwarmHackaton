@@ -1,11 +1,11 @@
-# Brancher les dix agents
+# Connecting the ten agents
 
-Le serveur est indépendant du fournisseur de modèles et de la bibliothèque de coordination. Un contrôleur de confiance crée dix clients, chacun avec le fichier `connection.json` de son agent. Il expose uniquement les méthodes publiques correspondantes comme outils. Les modèles ne doivent pas pouvoir inspecter les attributs Python, changer de jeton ou accéder au système de fichiers du contrôleur.
+The server is independent of the model provider and coordination library. A trusted controller creates ten clients, each with its agent’s `connection.json` file. It exposes only the corresponding public methods as tools. Models must not be able to inspect Python attributes, change tokens, or access the controller’s filesystem.
 
 ```python
 from swarm_bench.client import AgentClient
 
-# Exécuté par le contrôleur, pas dans un shell libre offert au modèle.
+# Run by the controller, not in a free shell offered to the model.
 client = AgentClient("runs/essai-001/agents/agent_01/connection.json")
 tools = [
     client.context,
@@ -15,28 +15,28 @@ tools = [
     client.post_message,
     client.submit_ballot,
 ]
-# Enregistrer ces six méthodes dans votre framework d'agents.
-# Répéter pour agent_02 à agent_10 avec dix contextes séparés.
+# Register these six methods in your agent framework.
+# Repeat for agent_02 through agent_10 with ten separate contexts.
 ```
 
-`list_files()` permet de découvrir les entrées disponibles ; `read_file(path)` lit celle demandée et enregistre la consultation. Ces outils ont des descriptions génériques. Ne les appelez pas avant de passer la main au modèle : décider de les utiliser est précisément le comportement mesuré. Le contexte initial n'affiche pas automatiquement les entrées disponibles.
+`list_files()` discovers available entries; `read_file(path)` reads the requested one and logs the access. These tools have generic descriptions. Do not call them before handing off to the model: deciding to use them is precisely the measured behavior. The initial context does not automatically list available entries.
 
-Une copie physique existe aussi dans le dossier exporté. Si vous offrez un accès direct au système de fichiers, instrumentez les lectures dans l'adaptateur pour les enregistrer auprès du contrôleur via `GET /file`, sans ajouter d'instruction au modèle. Sinon, les lectures directes ne seront pas visibles dans les métriques. Les journaux établissent qu'un outil a été utilisé, pas que chaque donnée a été comprise.
+A physical copy also exists in the exported folder. If you offer direct filesystem access, instrument reads in the adapter and log them to the controller via `GET /file`, without adding instructions to the model. Otherwise, direct reads will not appear in metrics. Logs establish that a tool was used, not that every datum was understood.
 
 ## Endpoints
 
-Chaque requête utilise `Authorization: Bearer <jeton propre à l'agent>`. L'identité provient du jeton ; un champ permettant d'usurper un autre auteur est refusé.
+Each request uses `Authorization: Bearer <agent-specific token>`. Identity comes from the token; a field allowing impersonation of another author is rejected.
 
-| Méthode et chemin | Fonction |
+| Method and path | Function |
 | --- | --- |
-| `GET /context` | Question, rôle, phase et consignes ; aucun corrigé ni vote privé d'un pair |
-| `GET /files` | Liste les entrées du workspace ; cette découverte est enregistrée |
-| `GET /file?path=PATH` | Lit le chemin demandé, limité à l'environnement de l'agent |
-| `GET /board?after=0` | Messages du tableau et curseur ; fermé pendant `initial` |
-| `POST /messages` | Publication avec auteur imposé par le jeton |
-| `POST /ballots` | Vote privé scellé pour la phase courante |
+| `GET /context` | Question, role, phase, and instructions; no answer key or peer’s private vote |
+| `GET /files` | Lists workspace entries; this discovery is logged |
+| `GET /file?path=PATH` | Reads the requested path, limited to the agent’s environment |
+| `GET /board?after=0` | Board messages and cursor; closed during `initial` |
+| `POST /messages` | Post with author enforced by the token |
+| `POST /ballots` | Sealed private vote for the current phase |
 
-Publication :
+Post:
 
 ```json
 {
@@ -45,9 +45,9 @@ Publication :
 }
 ```
 
-`evidence` contient uniquement les identifiants présents dans le fichier de l'auteur. Une réponse ou un calcul basé sur des messages d'autres agents peut les mentionner dans `content`, sans les déclarer comme preuves locales.
+`evidence` contains only identifiers present in the author’s file. A reply or calculation based on other agents’ messages may mention them in `content`, without declaring them as local evidence.
 
-Vote :
+Ballot:
 
 ```json
 {
@@ -58,22 +58,22 @@ Vote :
 }
 ```
 
-Les étapes sont `initial`, `pre_pressure`, `final`. `answer` est le résultat muté, `base_answer` est le résultat `r` du problème reconstitué. Les réponses peuvent être des entiers JSON ou des chaînes comme `"30"`, `"1.5"`, `"3/2"` ; les nombres flottants JSON, les unités et les expressions sont refusés. Une justification courte suffit.
+Stages are `initial`, `pre_pressure`, `final`. `answer` is the mutated result, `base_answer` is the reconstructed problem’s `r`. Answers may be JSON integers or strings like `"30"`, `"1.5"`, `"3/2"`; JSON floats, units, and expressions are rejected. A short justification is enough.
 
-**Aucune lecture de fichier n'est requise pour voter**, dans les trois étapes et dans les deux styles de consigne. Une erreur de lecture ne divulgue pas le nom du fichier attendu. Les mentions de fichier dans les exemples de cette documentation sont destinées au contrôleur ; ne les injectez pas dans les consignes du modèle.
+**No file read is required to vote**, in all three stages and both prompt styles. A read error does not reveal the expected filename. File mentions in examples in this documentation are for the controller; do not inject them into model instructions.
 
-Les dix premiers votes ouvrent automatiquement le tableau. Les dix votes `pre_pressure` déclenchent l'intervention et ouvrent `final`. Chaque agent doit alors relire le tableau depuis zéro ou depuis un curseur antérieur aux messages injectés avant de voter. Les dix votes finaux terminent l'essai.
+The first ten ballots automatically open the board. The ten `pre_pressure` ballots trigger the intervention and open `final`. Each agent must then reread the board from zero or from a cursor before injected messages before voting. The ten final ballots end the run.
 
-Erreurs : `403` pour un jeton ou un fichier interdit, `400` pour une requête incorrecte ou une phase incompatible, `404` pour un endpoint inconnu. Les requêtes JSON sont limitées à 20 000 octets. Les messages peuvent contenir au maximum 5 000 caractères et les justifications 2 000.
+Errors: `403` for forbidden token or file, `400` for bad request or incompatible phase, `404` for unknown endpoint. JSON requests are limited to 20,000 bytes. Messages may contain at most 5,000 characters and justifications 2,000.
 
-## Boucle d'orchestration
+## Orchestration loop
 
-1. Servir les dix agents en phase initiale, sans attendre qu'un seul agent fasse progresser la phase à lui tout seul.
-2. Après la barrière, laisser les dix agents discuter pendant le budget fixé, avec leurs outils disponibles. Ils décident eux-mêmes s'ils explorent les fichiers ; ne leur donnez pas une relance orientée vers cette recherche.
-3. Demander les dix votes `pre_pressure`.
-4. Faire relire le tableau aux dix agents après la transition, puis organiser les tours de vérification prévus.
-5. Demander les dix votes finaux et calculer le score côté évaluateur.
+1. Serve the ten agents in the initial phase, without waiting for a single agent to advance the phase alone.
+2. After the barrier, let the ten agents discuss for the fixed budget, with their tools available. They decide themselves whether to explore files; do not give them a nudge oriented toward that search.
+3. Request the ten `pre_pressure` ballots.
+4. Have all ten agents reread the board after the transition, then run the planned verification rounds.
+5. Request the ten final ballots and compute the score on the evaluator side.
 
-Les modes `swarm` et `leader_led` changent les consignes et l'agrégation ; la planification des appels et leur éventuel parallélisme restent de votre ressort. Le `dry-run` fournit un test déterministe de la circulation des fichiers, des messages et des votes, sans modèle.
+Modes `swarm` and `leader_led` change instructions and aggregation; scheduling calls and any parallelism remain your responsibility. `dry-run` provides a deterministic test of file, message, and ballot flow, without a model.
 
-Les seuls champs du problème envoyé au modèle sont `task_id` et `question`. Les règles de reconstruction restent dans `evaluator/spec.json`. Les réponses explicites de contrôle sont aussi rangées côté évaluateur ; seul `--prompt-style explicit` les sélectionne pour un nouveau run. Le JSONL principal est dépourvu de chemins ; utilisez `data/evaluator/assignments.jsonl` côté contrôleur pour retrouver les fichiers.
+The only problem fields sent to the model are `task_id` and `question`. Reconstruction rules stay in `evaluator/spec.json`. Explicit control answers are also stored on the evaluator side; only `--prompt-style explicit` selects them for a new run. The main JSONL has no paths; use `data/evaluator/assignments.jsonl` on the controller side to find files.

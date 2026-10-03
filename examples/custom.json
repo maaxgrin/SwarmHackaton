@@ -15,7 +15,7 @@
   ],
   "agent_tools": {},
   "agent_prompts": {},
-  "title": "Exemple technique · tâche libre",
+  "title": "Technical example · free task",
   "scenario": "custom",
   "restricted": [],
   "custom_question": "Combine the pieces held by the participants in agent-number order and submit the combined code.",

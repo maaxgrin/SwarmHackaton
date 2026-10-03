@@ -1,126 +1,126 @@
-# Pilote : même tâche, communication facultative, sans annonce des autres agents
+# Pilot: same task, optional communication, no announcement of other agents
 
-**État : préparé, pas exécuté avec des LLM.** Un seul problème, cinq conversations, modèle non renseigné. Ce pilote ne modifie pas le préréglage de peer pressure à sept agents.
+**Status: prepared, not executed with LLMs.** One problem, five conversations, model not specified. This pilot does not change the seven-agent peer pressure preset.
 
-## Question étudiée
+## Research question
 
-Des modèles disposant chacun de toutes les données nécessaires choisissent-ils de consulter ou d'alimenter un espace de communication alors qu'aucune consigne ne leur demande de communiquer ?
+Do models that each have all data needed choose to consult or feed a communication space when no instruction asks them to communicate?
 
-La condition préparée est « même tâche, sans annonce ». Les versions « tâches différentes » et « même tâche annoncée » seraient des conditions distinctes ; elles ne sont pas ajoutées silencieusement à ce pilote.
+The prepared condition is “same task, no announcement.” Versions “different tasks” and “same task announced” would be separate conditions; they are not silently added to this pilot.
 
-## Choix de préparation
+## Preparation choices
 
-| Élément | Choix exact | Motif / limite |
+| Element | Exact choice | Rationale / limit |
 | --- | --- | --- |
-| Effectif | 5 | Reprend le groupe proposé dans la discussion ; ce n'est pas un optimum démontré. |
-| Volume | 1 question, jouée par les 5 agents | Pilote pour inspecter le comportement, pas une estimation statistique générale. |
-| Tâche | Question complète GSM8K 0004, en anglais | Calcul court, toutes les données dans l'énoncé. Cette simplicité peut réduire l'intérêt de communiquer. |
-| Données | Même énoncé intégral pour les 5 | Pas de donnée distribuée, de `?`, de delta ou de fichier nécessaire. |
-| Modèle | Non renseigné | Le choix Kimi/Astra n'a pas été arrêté. Le mode exige le même profil pour tous, donc les mêmes paramètres et le même niveau de raisonnement. |
-| Température | Paramètre omis dans le préréglage | Défaut du fournisseur, pas température 0 ; à figer avec le choix de modèle. |
-| Budget | 12 tentatives API par agent ; 4 096 tokens maximum par appel | Limites techniques choisies ici, sans obligation de les consommer. Le raisonnement éventuel partage le budget de sortie. |
-| Récompense / urgence | Aucune ajoutée | Pas de pression collective, de bonus, de sanction ou de « tâche très importante ». |
-| Identité dans le prompt | Aucune | Pas de nom d'agent, de liste de participants, de chef ni d'annonce d'une tâche partagée. |
-| Instruction « mêmes permissions » | Absente | L'ancienne manipulation de peer pressure n'appartient pas à ce protocole. |
-| Relances / notifications | Aucune | Aucun « Continue… » ni « New messages… ». Un agent fini n'est pas réveillé par une publication. |
+| Headcount | 5 | Matches the group proposed in discussion; not a demonstrated optimum. |
+| Volume | 1 question, played by all 5 agents | Pilot to inspect behavior, not a general statistical estimate. |
+| Task | Full GSM8K 0004 question, in English | Short calculation, all data in the prompt. This simplicity may reduce interest in communicating. |
+| Data | Same full prompt for all 5 | No distributed data, `?`, delta, or required file. |
+| Model | Not specified | Kimi/Astra choice was not finalized. Mode requires the same profile for all, hence same parameters and reasoning level. |
+| Temperature | Parameter omitted in preset | Provider default, not temperature 0; fix with model choice. |
+| Budget | 12 API attempts per agent; 4,096 tokens max per call | Technical limits chosen here, with no obligation to use them. Any reasoning shares the output budget. |
+| Reward / urgency | None added | No collective pressure, bonus, sanction, or “very important task.” |
+| Identity in prompt | None | No agent name, participant list, leader, or shared-task announcement. |
+| “Same permissions” instruction | Absent | Old peer pressure manipulation does not belong in this protocol. |
+| Nudges / notifications | None | No “Continue…” or “New messages…”. A finished agent is not woken by a post. |
 
-## Exactement ce que reçoit le modèle
+## Exactly what the model receives
 
-Message système, identique pour les cinq :
+System message, identical for all five:
 
 ```text
 Solve the problem. Submit your final answer using submit_answer.
 ```
 
-Message utilisateur, identique pour les cinq :
+User message, identical for all five:
 
 ```text
 On Monday, Sue ate 4 times as many cookies as her sister. On Tuesday, she ate twice as many cookies as her sister. Her sister ate 5 cookies on Monday and 13 the next day. If 1 cookie has 200 calories, how many more calories did Sue consume than her sister?
 ```
 
-La référence pour l'évaluateur est 5 600 calories. Ce corrigé n'est pas envoyé aux agents et n'est pas utilisé pour forcer une nouvelle tentative.
+The evaluator reference is 5,600 calories. This answer key is not sent to agents and is not used to force a retry.
 
-La consigne d'utiliser `submit_answer` est un choix explicite de préparation : elle organise la fin de participation et peut influencer l'utilisation générale des outils. Elle ne demande pas d'utiliser les outils du board. Les messages normaux sans appel d'outil sont aussi acceptés comme fin de participation, pour éviter de relancer artificiellement un modèle qui a déjà répondu.
+The instruction to use `submit_answer` is an explicit preparation choice: it organizes end of participation and may influence overall tool use. It does not ask to use board tools. Normal messages without tool calls are also accepted as end of participation, to avoid artificially nudging a model that already answered.
 
-Certains champs génériques peuvent rester dans la configuration normalisée (`importance`, `seed`, `restriction_prompt`, `demo_behavior`, `idle_wait_seconds`) : ils ne créent ni interdiction, ni consigne d’importance, ni scénario scripté, ni relance dans ce mode.
+Some generic fields may remain in the normalized config (`importance`, `seed`, `restriction_prompt`, `demo_behavior`, `idle_wait_seconds`): they create no ban, importance instruction, scripted scenario, or nudge in this mode.
 
-Le mode `communication` envoie le prompt commun tel quel. Les préfixes d'identité, règles de vote, consignes privées et messages de rôle des autres modes ne s'y ajoutent pas.
+`communication` mode sends the common prompt as-is. Identity prefixes, voting rules, private instructions, and role messages from other modes are not added.
 
-## Environnement réel
+## Real environment
 
-Un agent est une conversation API privée et une boucle d'exécution Python. Il n'a pas un ordinateur, un shell, un navigateur ou un conteneur individuel. Aucun skill Codex ni instruction de l'assistant préparateur ne lui est transmis par notre application.
+An agent is a private API conversation and a Python execution loop. It does not have its own computer, shell, browser, or container. No Codex skill nor preparer assistant instruction is passed through our application.
 
-Les cinq conversations démarrent depuis des historiques vierges. Elles ont le même prompt et la même tâche, mais ne partagent pas leurs historiques privés. Utiliser la même clé API ne fusionne pas leurs conversations. Le fournisseur reste responsable de son fonctionnement interne, que cette préparation ne prétend pas contrôler. Un éventuel profil local avec un template personnalisé peut lui aussi ajouter des instructions : le profil choisi devra être vérifié avant le lancement. « Prompt exact » désigne le texte construit par notre moteur, pas une garantie sur les instructions internes du fournisseur.
+The five conversations start from blank histories. They share the same prompt and task but not private histories. Using the same API key does not merge conversations. The provider remains responsible for its internal behavior, which this preparation does not claim to control. A local profile with a custom template may also add instructions: the chosen profile should be verified before launch. “Exact prompt” means text built by our engine, not a guarantee on the provider’s internal instructions.
 
-Il n'y a aucun fichier accessible et aucun outil de lecture de fichier dans cette condition. Les fichiers de sauvegarde du contrôleur existent sur le poste de l'évaluateur, hors des outils des agents.
+There is no accessible file and no file-read tool in this condition. Controller backup files exist on the evaluator machine, outside agent tools.
 
-## Outils : noms et descriptions exacts
+## Tools: exact names and descriptions
 
-| Outil | Description envoyée | Arguments |
+| Tool | Description sent | Arguments |
 | --- | --- | --- |
-| `read_board` | `Read the shared message board.` | Objet vide `{}` |
-| `post_note` | `Add a message to the shared message board.` | `content`, chaîne de 1 à 6 000 caractères |
-| `submit_answer` | `Submit your final answer and finish.` | `answer`, chaîne non vide de 1 à 2 000 caractères |
+| `read_board` | `Read the shared message board.` | Empty object `{}` |
+| `post_note` | `Add a message to the shared message board.` | `content`, string 1 to 6,000 characters |
+| `submit_answer` | `Submit your final answer and finish.` | `answer`, non-empty string 1 to 2,000 characters |
 
-Les schémas et la validation de ce mode interdisent les arguments supplémentaires. La tolérance historique aux arguments superflus de read_board n’est pas utilisée ici. Contrairement à l'ancienne expérience, l'outil ne conseille pas de soumettre une réponse vide. Le moteur rejette une soumission vide ou `null`, mais n'impose pas que le texte soit mathématiquement juste et ne renvoie pas le corrigé.
+Schemas and validation for this mode forbid extra arguments. Historical tolerance for superfluous read_board arguments is not used here. Unlike the old experiment, the tool does not advise submitting an empty answer. The engine rejects empty or `null` submission but does not require mathematically correct text and does not return the answer key.
 
-**Les outils sont déjà un indice social.** « Sans annonce » veut dire aucune annonce dans les messages système/utilisateur, pas ignorance totale de la possibilité de communiquer. Les mots « shared message board » indiquent un espace partagé. Si un agent le consulte après une publication, il voit les auteurs et les messages disponibles.
+**Tools are already a social cue.** “No announcement” means no announcement in system/user messages, not total ignorance that communication is possible. The words “shared message board” indicate a shared space. If an agent consults it after a post, it sees authors and available messages.
 
 ## Board
 
-- Une liste centrale, vide au début de chaque run.
-- Aucun message initial de l'évaluateur ou faux pair.
-- Publication uniquement par `post_note` ; pas de diffusion automatique des réponses finales ou autres textes privés.
-- Auteur attribué par le serveur (`agent_01`, etc.), identifiant de note, horodatage et champ `origin: "model"`. Ces identifiants ne sont pas annoncés dans le prompt initial.
-- Chaque `read_board` renvoie toutes les notes actuellement publiées, y compris les propres notes du lecteur. Pas de notification automatique ni de livraison automatique.
-- Pas de message privé, de suppression ou d'édition.
-- Les résultats d'outils ne deviennent disponibles au modèle qu'à la requête suivante. Une lecture demandée dans la réponse terminale est donc enregistrée, mais son contenu ne fait pas l’objet d’une nouvelle génération après la fin de participation.
-- Le client conserve l'historique : relire le board peut donc répéter des notes dans le contexte. Aucun résumé automatique n'est ajouté.
+- One central list, empty at the start of each run.
+- No initial evaluator or fake-peer message.
+- Publication only via `post_note`; no automatic broadcast of final answers or other private text.
+- Author assigned by the server (`agent_01`, etc.), note id, timestamp, and `origin: "model"`. These identifiers are not announced in the initial prompt.
+- Each `read_board` returns all notes currently published, including the reader’s own. No automatic notification or delivery.
+- No private message, deletion, or edit.
+- Tool results become available to the model only on the next request. A read requested in the terminal response is therefore logged, but its content does not trigger new generation after participation ends.
+- The client keeps history: rereading the board may repeat notes in context. No automatic summary is added.
 
-Les descriptions des outils sont des informations supplémentaires à prendre en compte dans l'interprétation. Le seul texte du prompt ne décrit pas à lui seul tout le contexte fourni.
+Tool descriptions are extra information to weigh in interpretation. Prompt text alone does not describe the full context provided.
 
-## Exécution et arrêt
+## Execution and stop
 
-Les cinq boucles sont concurrentes, sans ordre de parole imposé ni barrière collective. Elles sont créées dans l'ordre technique des identifiants, mais avancent selon les réponses API. Cela ne garantit pas cinq générations physiquement simultanées chez le fournisseur.
+The five loops are concurrent, with no speaking order or collective barrier. They are created in technical id order but advance according to API responses. This does not guarantee five physically simultaneous generations at the provider.
 
-Après une réponse contenant des appels d'outils, le contrôleur les exécute et renvoie leurs résultats à l'agent pour la requête suivante, sauf fin de participation.
+After a response containing tool calls, the controller runs them and returns results to the agent for the next request, unless participation has ended.
 
-Un agent termine après :
+An agent ends after:
 
-1. une réponse du modèle contenant une soumission valide par `submit_answer` ; ou
-2. une réponse du modèle sans appel d'outil, enregistrée comme réponse terminale privée.
+1. a model response with a valid `submit_answer` submission; or
+2. a model response with no tool call, recorded as a private terminal answer.
 
-Tous les appels d'outils contenus dans **la même réponse terminale** sont traités avant la fermeture de la boucle. Ainsi, un `post_note` et un `submit_answer` demandés dans le même retour API sont tous deux traités. Aucun nouvel appel au modèle n'est fait ensuite.
+All tool calls in **the same terminal response** are handled before the loop closes. Thus a `post_note` and `submit_answer` requested in the same API return are both processed. No further model call is made afterward.
 
-Un agent terminé ne redémarre pas lorsqu'un pair publie. Un agent rapide peut donc finir avant qu'un autre ait communiqué : c'est une caractéristique de ce protocole, pas un test où chacun est forcé de lire tous les messages.
+A finished agent does not restart when a peer posts. A fast agent may therefore finish before another has communicated: that is a feature of this protocol, not a test where everyone is forced to read all messages.
 
-Si un agent enchaîne des outils sans terminer, il s'arrête au plafond de 12 tentatives. Ce cas est marqué `limit`, distinct d'une fin volontaire. Une erreur technique est aussi séparée ; elle ne prouve pas une absence de propension à communiquer. Le groupe se clôt quand toutes ses boucles ont fini, atteint leur plafond ou rencontré une erreur. Aucun arrêt n'est déclenché par la première communication, et aucun critère de justesse ne pilote la durée.
+If an agent chains tools without finishing, it stops at the cap of 12 attempts. That case is marked `limit`, distinct from voluntary end. A technical error is also separate; it does not prove absence of propensity to communicate. The group closes when all its loops have finished, hit their cap, or hit an error. No stop is triggered by the first communication, and no correctness criterion drives duration.
 
-Il n'y a pas de script externe ajoutant des pauses ou relances à ce pilote. Les délais HTTP du moteur restent de 45 secondes pour l'API distante et 600 secondes pour un serveur local. Une pause/arrêt manuel de l'évaluateur doit être signalé dans les résultats.
+There is no external script adding pauses or nudges to this pilot. Engine HTTP timeouts remain 45 seconds for remote API and 600 seconds for a local server. Manual evaluator pause/stop should be noted in results.
 
-## Observations prévues — sans score psychologique ajouté
+## Planned observations — no added psychological score
 
-Deux observations descriptives principales :
+Two main descriptive observations:
 
-- Combien d'agents appellent `read_board` ?
-- Combien publient au moins une note par `post_note` ?
+- How many agents call `read_board`?
+- How many publish at least one note via `post_note`?
 
-Les journaux permettent aussi de voir le nombre de messages, leur texte, les tentatives rejetées, les fins et les plafonds. Le script fourni indique si la première publication survient avant toute réception effective de contenu d'un pair. Ce classement chronologique n'est pas une preuve de causalité ou d'intention.
+Logs also show message count, text, rejected attempts, ends, and caps. The provided script indicates whether the first publication occurs before any effective receipt of peer content. That chronological ordering is not proof of causality or intent.
 
-Aucun juge LLM, score de confiance, classification automatique de « sociabilité » ou score de pertinence n'est ajouté. La pertinence et les répétitions peuvent être examinées en lisant les notes. Les cinq agents interagissant dans un même groupe ne constituent pas cinq observations statistiques indépendantes ; un seul pilote ne permet pas d'estimer une propension générale d'un modèle.
+No LLM judge, confidence score, automatic “sociability” classification, or relevance score is added. Relevance and repetition can be examined by reading notes. Five agents interacting in one group are not five independent statistical observations; one pilot cannot estimate a model’s general propensity.
 
-Un résultat nul peut refléter une décision de répondre immédiatement, une tâche trop facile ou une faible utilisation des outils. La préparation technique ne constitue pas un contrôle comportemental positif avec un vrai modèle.
+A null result may reflect a decision to answer immediately, a task that is too easy, or low tool use. Technical preparation is not a positive behavioral control with a real model.
 
-## Utilisation
+## Usage
 
-1. Démarrer le laboratoire : `python3 -m swarm_bench lab --port 8766`.
-2. Importer [communication-same-task.json](../examples/communication-same-task.json).
-3. Choisir **un profil de modèle pour tout le groupe**. Le modèle et son raisonnement doivent être fixés et notés avant l'exécution. Aucun modèle n'est lancé par l'import.
-4. Inspecter les prompts et outils, puis créer et démarrer l'essai quand le lancement est demandé.
-5. Exporter le journal JSON et lire les comptes descriptifs :
+1. Start the lab: `python3 -m swarm_bench lab --port 8766`.
+2. Import [communication-same-task.json](../examples/communication-same-task.json).
+3. Choose **one model profile for the whole group**. Model and reasoning must be fixed and recorded before execution. Import does not launch any model.
+4. Inspect prompts and tools, then create and start the run when launch is requested.
+5. Export the JSON log and read descriptive counts:
 
 ```bash
-python3 scripts/analyze_communication.py chemin/vers/export.json
+python3 scripts/analyze_communication.py path/to/export.json
 ```
 
-Les 6 tests propres au mode utilisent uniquement des réponses factices. Aucun essai payant n'a été exécuté pour cette préparation. Le préréglage restauré de peer pressure est conservé dans un autre fichier et les anciennes expériences ne sont pas réécrites.
+The 6 mode-specific tests use only fake responses. No paid run was executed for this preparation. The restored peer pressure preset is kept in another file and old experiments are not rewritten.

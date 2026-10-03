@@ -1,108 +1,108 @@
-# Audit de la boucle d'agents et choix de tâches — 22 septembre 2026
+# Agent loop and task choice audit — September 22, 2026
 
-Audit en lecture seule du moteur et des historiques ; aucun nouvel appel LLM payant.
-Aucune correction du moteur appliquée pendant cet audit.
+Read-only audit of the engine and histories; no new paid LLM calls.
+No engine fixes applied during this audit.
 
-## Références inspectées
+## References inspected
 
-- AutoGen, boucle outils : https://github.com/microsoft/autogen/blob/main/python/packages/autogen-agentchat/src/autogen_agentchat/agents/_assistant_agent.py
-  `_process_model_result` : boucle `max_tool_iterations`, exécution des outils,
-  ajout de `FunctionExecutionResultMessage` au contexte, nouvel appel modèle.
-- AutoGen, coordination : https://github.com/microsoft/autogen/blob/main/python/packages/autogen-agentchat/src/autogen_agentchat/teams/_group_chat/_base_group_chat_manager.py
-  propagation d'événements et sélection des participants. C'est un autre
-  protocole de circulation des messages que notre tableau lu volontairement.
-- CAMEL : https://github.com/camel-ai/camel/blob/master/camel/agents/chat_agent.py
+- AutoGen, tool loop: https://github.com/microsoft/autogen/blob/main/python/packages/autogen-agentchat/src/autogen_agentchat/agents/_assistant_agent.py
+  `_process_model_result`: `max_tool_iterations` loop, tool execution,
+  append `FunctionExecutionResultMessage` to context, new model call.
+- AutoGen, coordination: https://github.com/microsoft/autogen/blob/main/python/packages/autogen-agentchat/src/autogen_agentchat/teams/_group_chat/_base_group_chat_manager.py
+  event propagation and participant selection. That is a different
+  message-routing protocol than our voluntarily read board.
+- CAMEL: https://github.com/camel-ai/camel/blob/master/camel/agents/chat_agent.py
   `_record_assistant_tool_calls_from_requests`, `_execute_tool`,
-  `_record_tool_calling` : conservation du message assistant puis du résultat
-  lié au même identifiant ; boucle de modèle et gestion du contexte.
+  `_record_tool_calling`: keep assistant message then result
+  linked to the same id; model loop and context management.
 
-Les branches distantes ont été lues à la date de l'audit, sans installation de
-ces bibliothèques. La comparaison valide le principe de la boucle, pas une
-équivalence de toutes les fonctionnalités ou des protocoles expérimentaux.
+Remote branches were read on the audit date, without installing
+those libraries. Comparison validates loop principles, not equivalence of
+all features or experimental protocols.
 
-## Vérifications locales
+## Local checks
 
-- 92 tests exécutés avec succès (`python3 -m unittest discover -s tests -q`).
-- 153 checkpoints, 458 historiques d'agents, 4 169 tool_calls inspectés : aucune
-  incohérence détectée entre les identifiants des appels et leurs résultats,
-  aucun résultat manquant en fin d'historique, aucun identifiant réutilisé dans
-  le même historique. Les anciens runs sans checkpoint ne sont pas inclus.
-- L'appel réseau utilise `/chat/completions`, transmet l'historique et les schémas
-  d'outils, puis conserve les tool_calls et les résultats de rôle tool.
-- Les agents disposent de conversations distinctes ; `run_free` lance un thread
-  par agent. Les appels réseau peuvent être concurrents. L'application des effets
-  des outils utilise un verrou partagé pour rendre les mises à jour cohérentes.
-- Les tentatives ratées sont comptées avant l'envoi et les checkpoints sont
-  atomiques. Les tests couvrent notamment l'exposition aux messages réellement
-  présents dans la requête, l'isolation des fichiers et le rejet des outils absents.
+- 92 tests passed (`python3 -m unittest discover -s tests -q`).
+- 153 checkpoints, 458 agent histories, 4,169 tool_calls inspected: no
+  inconsistency between call ids and results,
+  no missing result at end of history, no id reuse in
+  the same history. Old runs without checkpoint are not included.
+- Network call uses `/chat/completions`, sends history and tool
+  schemas, then keeps tool_calls and tool-role results.
+- Agents have separate conversations; `run_free` launches one thread
+  per agent. Network calls may be concurrent. Tool effect application
+  uses a shared lock for consistent updates.
+- Failed attempts are counted before send and checkpoints are
+  atomic. Tests notably cover exposure to messages actually
+  present in the request, file isolation, and rejection of absent tools.
 
-## Problèmes et limites confirmés
+## Confirmed issues and limits
 
-1. **Limite de soumission de 2 000 caractères.** `lab_engine.py:436` refuse tout
-   code plus long. Une solution algorithmique correcte pourrait être rejetée
-   pour une raison de protocole. Reproduit avec une chaîne > 2 000 caractères.
-2. **Budget global de 1,5 M tokens non implémenté.** `validate_config` garde
-   `call_limit` et `max_output_tokens`, mais aucun compteur global de tokens.
-   Un champ hypothétique `total_output_tokens` est ignoré. Le produit
-   200 appels × 7 500 tokens bornait le dernier solo, pas un groupe de cinq.
-3. **Après submit_answer, un agent ne peut plus aider.** Dans les scénarios
-   communication/group_misalignment, il passe à done et sa boucle s'arrête.
-   Reproduction : poster une demande par un pair après sa soumission ne provoque
-   aucun nouvel appel. C'est une règle actuelle du protocole, pas un bug réseau.
-   Elle est particulièrement importante pour l'étude d'entraide après résolution.
-4. **Le tableau est consulté volontairement.** Une publication ne pousse pas son
-   contenu dans les historiques. Les agents actifs peuvent lire à nouveau ; un
-   agent terminé ne le fera pas. C'est conforme au board demandé et explique
-   pourquoi une demande tardive peut rester sans réponse.
-5. **Correction d'une explication antérieure : read_board inclut sa propre note.**
-   Le résultat contient tout le tableau. Seul le champ d'observation `note_ids`
-   filtre les auteurs différents. Reproduction : l'auteur retrouve bien sa note
-   dans le résultat, même lorsque l'événement `board_read.note_ids` vaut [].
-6. **Les reprises ne couvrent pas tous les incidents.** HTTP 402, timeouts et
-   erreurs réseau ne sont pas réessayés. Les headers Retry-After ne sont pas
-   exploités ; les 429/5xx réessayables utilisent 10 puis 20 secondes. Une erreur
-   402 antérieure ne permet pas de conclure à la cause précise sans son corps.
-7. **Le scénario Python n'est pas encore implémenté.** Aucun outil run_python ni
-   isolation d'interpréteur n'existe dans le moteur. Il peut faire le contrôle
-   sans Python, mais pas encore la condition avec un agent équipé.
-8. **Pas de gestion de contexte pour longues discussions.** Chaque read_board
-   renvoie tout le tableau et les anciens résultats restent dans l'historique.
-   Cela multiplie les tokens d'entrée ; CAMEL prévoit une gestion de contexte,
-   mais en adopter une ici serait un choix de protocole à rendre explicite.
+1. **2,000-character submission limit.** `lab_engine.py:436` rejects any
+   longer code. A correct algorithmic solution could be rejected
+   for protocol reasons. Reproduced with string > 2,000 characters.
+2. **1.5M global token budget not implemented.** `validate_config` keeps
+   `call_limit` and `max_output_tokens`, but no global token counter.
+   A hypothetical `total_output_tokens` field is ignored. Product
+   200 calls × 7,500 tokens bounded the last solo, not a group of five.
+3. **After submit_answer, an agent can no longer help.** In
+   communication/group_misalignment scenarios, it goes to done and its loop stops.
+   Reproduction: posting a peer request after submission triggers
+   no new call. That is a current protocol rule, not a network bug.
+   It matters especially for studying help after solving.
+4. **Board is read voluntarily.** A post does not push its
+   content into histories. Active agents may read again; a
+   finished agent will not. That matches the requested board and explains
+   why a late request may get no response.
+5. **Correction of earlier explanation: read_board includes own note.**
+   The result contains the full board. Only the observation field `note_ids`
+   filters different authors. Reproduction: author finds their note
+   in the result even when `board_read.note_ids` is [].
+6. **Retries do not cover all incidents.** HTTP 402, timeouts, and
+   network errors are not retried. Retry-After headers are not
+   used; retriable 429/5xx use 10 then 20 seconds. An earlier
+   402 does not allow pinpointing cause without its body.
+7. **Python scenario not yet implemented.** No run_python tool nor
+   interpreter isolation exists in the engine. It can do the control
+   without Python, but not yet the condition with an equipped agent.
+8. **No context management for long discussions.** Each read_board
+   returns the full board and old results stay in history.
+   That multiplies input tokens; CAMEL has context management,
+   but adopting one here would be an explicit protocol choice.
 
-Autres paramètres à ne pas masquer : le mode submit_only peut insérer un rappel
-de soumission ; plusieurs outils dans une réponse sont tous traités avant la fin
-individuelle ; le profil souhaité est figé, mais l'identité précise du fournisseur
-de routage OpenRouter n'est pas enregistrée dans chaque résultat.
+Other parameters not to hide: submit_only mode may insert a submission
+reminder; multiple tools in one response are all handled before individual
+end; desired profile is frozen, but exact OpenRouter routing provider
+identity is not recorded in each result.
 
-## Tâches plus exigeantes proposées
+## Proposed harder tasks
 
-Présence et difficulté hard vérifiées dans :
+Presence and hard difficulty verified in:
 https://huggingface.co/datasets/livecodebench/code_generation_lite/resolve/main/test6.jsonl
-Référence du protocole : https://github.com/LiveCodeBench/LiveCodeBench
+Protocol reference: https://github.com/LiveCodeBench/LiveCodeBench
 
-- `abc387_f`, Count Arrays : compter modulo 998244353 les vecteurs x respectant
-  x[i] <= x[A[i]], avec N,M <= 2025. Graphe de dépendances, cycles et dénombrement.
+- `abc387_f`, Count Arrays: count modulo 998244353 vectors x with
+  x[i] <= x[A[i]], N,M <= 2025. Dependency graph, cycles, and counting.
   https://atcoder.jp/contests/abc387/tasks/abc387_f?lang=en
-- `abc388_f`, Dangerous Sugoroku : atteindre la case N en évitant des intervalles
-  interdits, avec des sauts de longueur A..B ; N jusqu'à 10^12, M jusqu'à 20 000,
-  1 <= A <= B <= 20. Une simulation case par case ne tient pas les contraintes.
+- `abc388_f`, Dangerous Sugoroku: reach cell N avoiding forbidden
+  intervals, with jumps of length A..B; N up to 10^12, M up to 20,000,
+  1 <= A <= B <= 20. Per-cell simulation does not meet constraints.
   https://atcoder.jp/contests/abc388/tasks/abc388_f?lang=en
-- `abc388_g`, Simultaneous Kagamimochi 2 : maximiser le nombre de paires disjointes
-  a,b telles que 2a <= b, sur chacun de nombreux intervalles d'une liste triée ;
-  N,Q jusqu'à 200 000. La difficulté combine optimisation et requêtes nombreuses.
+- `abc388_g`, Simultaneous Kagamimochi 2: maximize disjoint pairs
+  a,b with 2a <= b, on many intervals of a sorted list;
+  N,Q up to 200,000. Difficulty combines optimization and many queries.
   https://atcoder.jp/contests/abc388/tasks/abc388_g?lang=en
 
-Python aiderait à construire une solution exhaustive sur petits cas, tester une
-solution optimisée et rechercher des contre-exemples. Cela ne garantit pas un
-échec sans Python : les problèmes sont publics et les capacités du modèle doivent
-être calibrées empiriquement avec un nombre fixé de premières solutions solos.
-Recommandation : commencer par Count Arrays et Dangerous Sugoroku, puis garder
-les tâches où la résolution solo n'est ni systématique ni presque impossible.
-Ne pas appeler ce protocole multi-agent le score officiel LiveCodeBench.
+Python would help build exhaustive solutions on small cases, test an
+optimized solution, and search counterexamples. That does not guarantee
+failure without Python: problems are public and model capability must
+be calibrated empirically with a fixed number of first solo solutions.
+Recommendation: start with Count Arrays and Dangerous Sugoroku, then keep
+tasks where solo solving is neither systematic nor nearly impossible.
+Do not call this multi-agent protocol the official LiveCodeBench score.
 
-Alternative plus directement sensible à l'interpréteur : prédiction d'exécution
-(LiveCodeBench Code Execution / CRUXEval-O). CRUXEval comporte toutefois des
-programmes courts et n'est pas une garantie de difficulté pour DeepSeek V4.
-Une augmentation artificielle de leur complexité constituerait une adaptation
-du benchmark et devrait être explicitement nommée.
+Alternative more directly sensitive to the interpreter: execution prediction
+(LiveCodeBench Code Execution / CRUXEval-O). CRUXEval however has
+short programs and is not a difficulty guarantee for DeepSeek V4.
+Artificially inflating their complexity would be benchmark adaptation
+and should be explicitly named.
