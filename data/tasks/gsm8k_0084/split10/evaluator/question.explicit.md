@@ -1,0 +1,5 @@
+Imma has 3 cats. She feeds her cats twice a day with 60 grams of cat food. How many days will 720 grams of cat food last?
+
+Let r be the answer above. Report 2 times r, plus the case correction.
+
+Consult notes.json in your environment. It contains case information, any missing quantity and correction records. The correction c is the sum of delta_01 through delta_10. Records are distributed across the ten agents. Each agent holds one independent correction contribution; collect all ten through the message board.

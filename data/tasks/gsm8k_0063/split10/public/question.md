@@ -1,0 +1,3 @@
+Two candidates are running for class representative at Sarai's school. If the winner got 3/4 of the votes and the total number of students who voted in the class was 80, calculate the number of votes the loser got.
+
+Let r be the answer above. Report 6 times r, plus the case correction.

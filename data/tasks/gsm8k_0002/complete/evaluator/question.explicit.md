@@ -1,0 +1,5 @@
+The educational shop is selling notebooks for $1.50 each and a ballpen at $? each.  William bought five notebooks and a ballpen. How much did he spend in all?
+
+Let r be the answer above. Report Y = 3 * r + c. Case correction c = ?.
+
+Consult notes.json in your environment. It contains case information, any missing quantity and correction records. The correction c is the sum of delta_01 through delta_10. Your copy contains the full set of records. Count repeated IDs only once.

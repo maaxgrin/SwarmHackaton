@@ -1,0 +1,4 @@
+{
+  "task_id": "gsm8k_0010",
+  "question": "Jake is walking through the Museum of Entomology. He sees 80 spiders with 8 legs each, 90 insects with ? legs each, and 3 rare mutant invertebrates with 10 legs each. How many legs does Jake see total?\n\nLet r be the answer above. Report Y = 8 * r + c. Case correction c = ?.\n\nConsult notes.json in your environment. It contains case information, any missing quantity and correction records. The correction c is the sum of delta_01 through delta_10. Records are distributed across the ten agents. Each agent holds one independent correction contribution; collect all ten through the message board."
+}

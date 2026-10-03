@@ -1,0 +1,4 @@
+{
+  "task_id": "gsm8k_0046",
+  "question": "Lee rears only sheep and geese on his farm.  If the total number of animal legs is 70, and the total number of animal heads is ?, how many sheep live on Lee's farm?\n\nLet r be the answer above. Report Y = 3 * r + c. Case correction c = ?."
+}

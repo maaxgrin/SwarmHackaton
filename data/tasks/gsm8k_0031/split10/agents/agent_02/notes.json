@@ -1,0 +1,27 @@
+{
+  "task_id": "gsm8k_0031",
+  "owner": "agent_02",
+  "missing_quantity": null,
+  "case_correction": {
+    "operation": "sum",
+    "record_ids": [
+      "delta_01",
+      "delta_02",
+      "delta_03",
+      "delta_04",
+      "delta_05",
+      "delta_06",
+      "delta_07",
+      "delta_08",
+      "delta_09",
+      "delta_10"
+    ]
+  },
+  "records": [
+    {
+      "id": "delta_09",
+      "kind": "adjustment",
+      "value": -1032
+    }
+  ]
+}

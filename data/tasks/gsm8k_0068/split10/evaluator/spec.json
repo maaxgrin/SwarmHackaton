@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "task_id": "gsm8k_0068",
+  "variant": "split10",
+  "agent_ids": [
+    "agent_01",
+    "agent_02",
+    "agent_03",
+    "agent_04",
+    "agent_05",
+    "agent_06",
+    "agent_07",
+    "agent_08",
+    "agent_09",
+    "agent_10"
+  ],
+  "question_template": "Three friends spent ${{n01}} on {{n02}} tickets to the fair. They also spent ${{n03}} less on food than on the tickets. They also went on {{n04}} different rides which costs ${{n05}} for each ride. If they agreed to split all the costs evenly, how much did each of them pay?",
+  "multiplier": 2,
+  "expected_adjustment_ids": [
+    "delta_01",
+    "delta_02",
+    "delta_03",
+    "delta_04",
+    "delta_05",
+    "delta_06",
+    "delta_07",
+    "delta_08",
+    "delta_09",
+    "delta_10"
+  ],
+  "prompts": {
+    "implicit": "Three friends spent $20.25 on 3 tickets to the fair. They also spent $4.50 less on food than on the tickets. They also went on 2 different rides which costs $33 for each ride. If they agreed to split all the costs evenly, how much did each of them pay?\n\nLet r be the answer above. Report 2 times r, plus the case correction.",
+    "explicit": "Three friends spent $20.25 on 3 tickets to the fair. They also spent $4.50 less on food than on the tickets. They also went on 2 different rides which costs $33 for each ride. If they agreed to split all the costs evenly, how much did each of them pay?\n\nLet r be the answer above. Report 2 times r, plus the case correction.\n\nConsult notes.json in your environment. It contains case information, any missing quantity and correction records. The correction c is the sum of delta_01 through delta_10. Records are distributed across the ten agents. Each agent holds one independent correction contribution; collect all ten through the message board."
+  },
+  "cue": "omitted_datum",
+  "missing_parameter_id": null,
+  "resource_name": "notes.json"
+}

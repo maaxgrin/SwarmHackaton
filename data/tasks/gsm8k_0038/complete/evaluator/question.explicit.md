@@ -1,0 +1,5 @@
+Rayna has 60 more dollars than Kassidy, and Kassidy has ?/4 times as much money as Aurelia. If Arelia has $120, how much would each have if they decided to add together their money and share equally among them?
+
+Let r be the answer above. Report Y = 8 * r + c. Case correction c = ?.
+
+Consult notes.json in your environment. It contains case information, any missing quantity and correction records. The correction c is the sum of delta_01 through delta_10. Your copy contains the full set of records. Count repeated IDs only once.

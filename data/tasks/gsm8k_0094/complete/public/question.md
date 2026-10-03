@@ -1,0 +1,3 @@
+Susan earns $5 every ? minutes for an online task she does. If she works between 8 a.m. and 11 a.m. and pauses in between for half an hour, how much money does she earn for the online task?
+
+Let r be the answer above. Report Y = 4 * r + c. Case correction c = ?.

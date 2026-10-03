@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "task_id": "gsm8k_0065",
+  "variant": "split10",
+  "agent_ids": [
+    "agent_01",
+    "agent_02",
+    "agent_03",
+    "agent_04",
+    "agent_05",
+    "agent_06",
+    "agent_07",
+    "agent_08",
+    "agent_09",
+    "agent_10"
+  ],
+  "question_template": "Tyson decided to make muffaletta sandwiches for the big game.  Each sandwich required {{n01}} pound each of meat and cheese and would serve {{n02}} people.  There would be {{n03}} people in total watching the game.  The meat cost ${{n04}} per pound and the cheese cost ${{n05}} per pound.  How much money would he spend on the meat and cheese to make enough sandwiches to serve {{n06}} people?",
+  "multiplier": 9,
+  "expected_adjustment_ids": [
+    "delta_01",
+    "delta_02",
+    "delta_03",
+    "delta_04",
+    "delta_05",
+    "delta_06",
+    "delta_07",
+    "delta_08",
+    "delta_09",
+    "delta_10"
+  ],
+  "prompts": {
+    "implicit": "Tyson decided to make muffaletta sandwiches for the big game.  Each sandwich required 1 pound each of meat and cheese and would serve 4 people.  There would be 20 people in total watching the game.  The meat cost $7.00 per pound and the cheese cost $? per pound.  How much money would he spend on the meat and cheese to make enough sandwiches to serve 20 people?\n\nLet r be the answer above. Report Y = 9 * r + c. Case correction c = ?.",
+    "explicit": "Tyson decided to make muffaletta sandwiches for the big game.  Each sandwich required 1 pound each of meat and cheese and would serve 4 people.  There would be 20 people in total watching the game.  The meat cost $7.00 per pound and the cheese cost $? per pound.  How much money would he spend on the meat and cheese to make enough sandwiches to serve 20 people?\n\nLet r be the answer above. Report Y = 9 * r + c. Case correction c = ?.\n\nConsult notes.json in your environment. It contains case information, any missing quantity and correction records. The correction c is the sum of delta_01 through delta_10. Records are distributed across the ten agents. Each agent holds one independent correction contribution; collect all ten through the message board."
+  },
+  "cue": "question_mark",
+  "missing_parameter_id": "n05",
+  "resource_name": "notes.json"
+}

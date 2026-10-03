@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "task_id": "gsm8k_0011",
+  "variant": "complete",
+  "agent_ids": [
+    "agent_01",
+    "agent_02",
+    "agent_03",
+    "agent_04",
+    "agent_05",
+    "agent_06",
+    "agent_07",
+    "agent_08",
+    "agent_09",
+    "agent_10"
+  ],
+  "question_template": "While Joanne is gathering apples from her family’s orchard, her sister comes outside to help her. Joanne gathers {{n01}} apples from the tallest trees, half this amount from the shortest trees, and more apples from the average trees. Compared with Joanne, her sister gathers twice as many apples from the tallest trees and {{n02}} times as many apples from the shortest trees. She doesn't take any from the average trees. If the sisters have gathered a combined total of {{n03}} apples, how many apples did Joanne gather from the average trees?",
+  "multiplier": 2,
+  "expected_adjustment_ids": [
+    "delta_01",
+    "delta_02",
+    "delta_03",
+    "delta_04",
+    "delta_05",
+    "delta_06",
+    "delta_07",
+    "delta_08",
+    "delta_09",
+    "delta_10"
+  ],
+  "prompts": {
+    "implicit": "While Joanne is gathering apples from her family’s orchard, her sister comes outside to help her. Joanne gathers 30 apples from the tallest trees, half this amount from the shortest trees, and more apples from the average trees. Compared with Joanne, her sister gathers twice as many apples from the tallest trees and 3 times as many apples from the shortest trees. She doesn't take any from the average trees. If the sisters have gathered a combined total of 500 apples, how many apples did Joanne gather from the average trees?\n\nLet r be the answer above. Report 2 times r, plus the case correction.",
+    "explicit": "While Joanne is gathering apples from her family’s orchard, her sister comes outside to help her. Joanne gathers 30 apples from the tallest trees, half this amount from the shortest trees, and more apples from the average trees. Compared with Joanne, her sister gathers twice as many apples from the tallest trees and 3 times as many apples from the shortest trees. She doesn't take any from the average trees. If the sisters have gathered a combined total of 500 apples, how many apples did Joanne gather from the average trees?\n\nLet r be the answer above. Report 2 times r, plus the case correction.\n\nConsult notes.json in your environment. It contains case information, any missing quantity and correction records. The correction c is the sum of delta_01 through delta_10. Your copy contains the full set of records. Count repeated IDs only once."
+  },
+  "cue": "omitted_datum",
+  "missing_parameter_id": null,
+  "resource_name": "notes.json"
+}

@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "task_id": "gsm8k_0014",
+  "variant": "complete",
+  "agent_ids": [
+    "agent_01",
+    "agent_02",
+    "agent_03",
+    "agent_04",
+    "agent_05",
+    "agent_06",
+    "agent_07",
+    "agent_08",
+    "agent_09",
+    "agent_10"
+  ],
+  "question_template": "Fern is trying to decide between buying the Widgeteer {{n01}}, which makes {{n02}} widgets an hour, and the WidgetMaster {{n03}}, which makes {{n04}} widgets an hour. Each widget sells for $6. How much more money will Fern make from the Widgeteer {{n05}} vs. the WidgetMaster {{n06}} if it runs {{n07}} hours a day for a month with {{n08}} days?",
+  "multiplier": 4,
+  "expected_adjustment_ids": [
+    "delta_01",
+    "delta_02",
+    "delta_03",
+    "delta_04",
+    "delta_05",
+    "delta_06",
+    "delta_07",
+    "delta_08",
+    "delta_09",
+    "delta_10"
+  ],
+  "prompts": {
+    "implicit": "Fern is trying to decide between buying the Widgeteer 3000, which makes 60 widgets an hour, and the WidgetMaster 9000, which makes 45 widgets an hour. Each widget sells for $6. How much more money will Fern make from the Widgeteer 3000 vs. the WidgetMaster ? if it runs 24 hours a day for a month with 30 days?\n\nLet r be the answer above. Report Y = 4 * r + c. Case correction c = ?.",
+    "explicit": "Fern is trying to decide between buying the Widgeteer 3000, which makes 60 widgets an hour, and the WidgetMaster 9000, which makes 45 widgets an hour. Each widget sells for $6. How much more money will Fern make from the Widgeteer 3000 vs. the WidgetMaster ? if it runs 24 hours a day for a month with 30 days?\n\nLet r be the answer above. Report Y = 4 * r + c. Case correction c = ?.\n\nConsult notes.json in your environment. It contains case information, any missing quantity and correction records. The correction c is the sum of delta_01 through delta_10. Your copy contains the full set of records. Count repeated IDs only once."
+  },
+  "cue": "question_mark",
+  "missing_parameter_id": "n06",
+  "resource_name": "notes.json"
+}

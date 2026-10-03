@@ -1,0 +1,102 @@
+{
+  "task_id": "gsm8k_0088",
+  "owner": "agent_01",
+  "missing_quantity": null,
+  "case_correction": {
+    "operation": "sum",
+    "record_ids": [
+      "delta_01",
+      "delta_02",
+      "delta_03",
+      "delta_04",
+      "delta_05",
+      "delta_06",
+      "delta_07",
+      "delta_08",
+      "delta_09",
+      "delta_10"
+    ]
+  },
+  "records": [
+    {
+      "id": "n01",
+      "kind": "parameter",
+      "value": "3"
+    },
+    {
+      "id": "n02",
+      "kind": "parameter",
+      "value": "75"
+    },
+    {
+      "id": "n03",
+      "kind": "parameter",
+      "value": "100"
+    },
+    {
+      "id": "n04",
+      "kind": "parameter",
+      "value": "50"
+    },
+    {
+      "id": "n05",
+      "kind": "parameter",
+      "value": "3"
+    },
+    {
+      "id": "n06",
+      "kind": "parameter",
+      "value": "18,000"
+    },
+    {
+      "id": "delta_01",
+      "kind": "adjustment",
+      "value": 1220
+    },
+    {
+      "id": "delta_02",
+      "kind": "adjustment",
+      "value": -5541
+    },
+    {
+      "id": "delta_03",
+      "kind": "adjustment",
+      "value": 1949
+    },
+    {
+      "id": "delta_04",
+      "kind": "adjustment",
+      "value": -6356
+    },
+    {
+      "id": "delta_05",
+      "kind": "adjustment",
+      "value": 312
+    },
+    {
+      "id": "delta_06",
+      "kind": "adjustment",
+      "value": -6869
+    },
+    {
+      "id": "delta_07",
+      "kind": "adjustment",
+      "value": 3875
+    },
+    {
+      "id": "delta_08",
+      "kind": "adjustment",
+      "value": -146
+    },
+    {
+      "id": "delta_09",
+      "kind": "adjustment",
+      "value": 5615
+    },
+    {
+      "id": "delta_10",
+      "kind": "adjustment",
+      "value": 6038
+    }
+  ]
+}

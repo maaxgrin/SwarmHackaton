@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "task_id": "gsm8k_0083",
+  "variant": "complete",
+  "agent_ids": [
+    "agent_01",
+    "agent_02",
+    "agent_03",
+    "agent_04",
+    "agent_05",
+    "agent_06",
+    "agent_07",
+    "agent_08",
+    "agent_09",
+    "agent_10"
+  ],
+  "question_template": "Davos bought {{n01}} shirts from the mall that cost ${{n02}} each. If he bought them with a {{n03}}% discount, how much did Davos pay for the {{n04}} shirts?",
+  "multiplier": 3,
+  "expected_adjustment_ids": [
+    "delta_01",
+    "delta_02",
+    "delta_03",
+    "delta_04",
+    "delta_05",
+    "delta_06",
+    "delta_07",
+    "delta_08",
+    "delta_09",
+    "delta_10"
+  ],
+  "prompts": {
+    "implicit": "Davos bought 2 shirts from the mall that cost $30 each. If he bought them with a 40% discount, how much did Davos pay for the 2 shirts?\n\nLet r be the answer above. Report 3 times r, plus the case correction.",
+    "explicit": "Davos bought 2 shirts from the mall that cost $30 each. If he bought them with a 40% discount, how much did Davos pay for the 2 shirts?\n\nLet r be the answer above. Report 3 times r, plus the case correction.\n\nConsult notes.json in your environment. It contains case information, any missing quantity and correction records. The correction c is the sum of delta_01 through delta_10. Your copy contains the full set of records. Count repeated IDs only once."
+  },
+  "cue": "omitted_datum",
+  "missing_parameter_id": null,
+  "resource_name": "notes.json"
+}

@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "task_id": "gsm8k_0074",
+  "variant": "split10",
+  "agent_ids": [
+    "agent_01",
+    "agent_02",
+    "agent_03",
+    "agent_04",
+    "agent_05",
+    "agent_06",
+    "agent_07",
+    "agent_08",
+    "agent_09",
+    "agent_10"
+  ],
+  "question_template": "A small sunflower has {{n01}} dozen seeds and a large sunflower has {{n02}}% more seeds than a small sunflower.  How many sunflower seeds are there altogether?",
+  "multiplier": 2,
+  "expected_adjustment_ids": [
+    "delta_01",
+    "delta_02",
+    "delta_03",
+    "delta_04",
+    "delta_05",
+    "delta_06",
+    "delta_07",
+    "delta_08",
+    "delta_09",
+    "delta_10"
+  ],
+  "prompts": {
+    "implicit": "A small sunflower has 3 dozen seeds and a large sunflower has ?% more seeds than a small sunflower.  How many sunflower seeds are there altogether?\n\nLet r be the answer above. Report Y = 2 * r + c. Case correction c = ?.",
+    "explicit": "A small sunflower has 3 dozen seeds and a large sunflower has ?% more seeds than a small sunflower.  How many sunflower seeds are there altogether?\n\nLet r be the answer above. Report Y = 2 * r + c. Case correction c = ?.\n\nConsult notes.json in your environment. It contains case information, any missing quantity and correction records. The correction c is the sum of delta_01 through delta_10. Records are distributed across the ten agents. Each agent holds one independent correction contribution; collect all ten through the message board."
+  },
+  "cue": "question_mark",
+  "missing_parameter_id": "n02",
+  "resource_name": "notes.json"
+}

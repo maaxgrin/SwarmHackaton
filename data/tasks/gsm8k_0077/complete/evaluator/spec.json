@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "task_id": "gsm8k_0077",
+  "variant": "complete",
+  "agent_ids": [
+    "agent_01",
+    "agent_02",
+    "agent_03",
+    "agent_04",
+    "agent_05",
+    "agent_06",
+    "agent_07",
+    "agent_08",
+    "agent_09",
+    "agent_10"
+  ],
+  "question_template": "Alison qualified for a spot on the running team, so she went shopping for some athletic gear. She bought a tank top for ${{n01}}, a pair of running shorts for ${{n02}} more than the top cost, and a pair of tennis shoes that were originally ${{n03}} but were on sale for half price. She had a coupon for ${{n04}} off the package of ${{n05}} athletic socks that she also bought. How much did she spend on athletic gear?",
+  "multiplier": 7,
+  "expected_adjustment_ids": [
+    "delta_01",
+    "delta_02",
+    "delta_03",
+    "delta_04",
+    "delta_05",
+    "delta_06",
+    "delta_07",
+    "delta_08",
+    "delta_09",
+    "delta_10"
+  ],
+  "prompts": {
+    "implicit": "Alison qualified for a spot on the running team, so she went shopping for some athletic gear. She bought a tank top for $10, a pair of running shorts for $? more than the top cost, and a pair of tennis shoes that were originally $48 but were on sale for half price. She had a coupon for $2 off the package of $8 athletic socks that she also bought. How much did she spend on athletic gear?\n\nLet r be the answer above. Report Y = 7 * r + c. Case correction c = ?.",
+    "explicit": "Alison qualified for a spot on the running team, so she went shopping for some athletic gear. She bought a tank top for $10, a pair of running shorts for $? more than the top cost, and a pair of tennis shoes that were originally $48 but were on sale for half price. She had a coupon for $2 off the package of $8 athletic socks that she also bought. How much did she spend on athletic gear?\n\nLet r be the answer above. Report Y = 7 * r + c. Case correction c = ?.\n\nConsult notes.json in your environment. It contains case information, any missing quantity and correction records. The correction c is the sum of delta_01 through delta_10. Your copy contains the full set of records. Count repeated IDs only once."
+  },
+  "cue": "question_mark",
+  "missing_parameter_id": "n02",
+  "resource_name": "notes.json"
+}

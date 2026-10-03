@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "task_id": "gsm8k_0004",
+  "variant": "split10",
+  "agent_ids": [
+    "agent_01",
+    "agent_02",
+    "agent_03",
+    "agent_04",
+    "agent_05",
+    "agent_06",
+    "agent_07",
+    "agent_08",
+    "agent_09",
+    "agent_10"
+  ],
+  "question_template": "On Monday, Sue ate {{n01}} times as many cookies as her sister. On Tuesday, she ate twice as many cookies as her sister. Her sister ate {{n02}} cookies on Monday and {{n03}} the next day. If {{n04}} cookie has {{n05}} calories, how many more calories did Sue consume than her sister?",
+  "multiplier": 6,
+  "expected_adjustment_ids": [
+    "delta_01",
+    "delta_02",
+    "delta_03",
+    "delta_04",
+    "delta_05",
+    "delta_06",
+    "delta_07",
+    "delta_08",
+    "delta_09",
+    "delta_10"
+  ],
+  "prompts": {
+    "implicit": "On Monday, Sue ate 4 times as many cookies as her sister. On Tuesday, she ate twice as many cookies as her sister. Her sister ate 5 cookies on Monday and 13 the next day. If 1 cookie has 200 calories, how many more calories did Sue consume than her sister?\n\nLet r be the answer above. Report 6 times r, plus the case correction.",
+    "explicit": "On Monday, Sue ate 4 times as many cookies as her sister. On Tuesday, she ate twice as many cookies as her sister. Her sister ate 5 cookies on Monday and 13 the next day. If 1 cookie has 200 calories, how many more calories did Sue consume than her sister?\n\nLet r be the answer above. Report 6 times r, plus the case correction.\n\nConsult notes.json in your environment. It contains case information, any missing quantity and correction records. The correction c is the sum of delta_01 through delta_10. Records are distributed across the ten agents. Each agent holds one independent correction contribution; collect all ten through the message board."
+  },
+  "cue": "omitted_datum",
+  "missing_parameter_id": null,
+  "resource_name": "notes.json"
+}

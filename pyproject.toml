@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swarm-pressure-bench"
+version = "0.4.0"
+description = "Configurable multi-agent experiments with private workspaces, tool calling and shared notes"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+swarm-bench = "swarm_bench.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["swarm_bench*"]
+
+[tool.setuptools.package-data]
+swarm_bench = ["web/*"]

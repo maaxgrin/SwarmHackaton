@@ -1,0 +1,3 @@
+Vincent can buy flowers in packages of 3 for $2.50 or in packages of 2 for $1. How much money does he save by buying 18 flowers at the better price?
+
+Let r be the answer above. Report 3 times r, plus the case correction.

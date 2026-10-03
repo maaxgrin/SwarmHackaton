@@ -1,0 +1,4 @@
+{
+  "task_id": "gsm8k_0042",
+  "question": "Caroline is three times older than Ben. Ben is two times older than Chris. If Chris is ?, how old is Caroline?\n\nLet r be the answer above. Report Y = 8 * r + c. Case correction c = ?."
+}

@@ -1,0 +1,1222 @@
+{
+  "schema_version": 2,
+  "name": "Swarm Pressure Bench — implicit file discovery",
+  "base_question_count": 100,
+  "variant_count": 200,
+  "agents_per_task": 10,
+  "primary_suite": "Use primary_variant for exactly count trials (balanced complete/split10).",
+  "paired_suite": "Use both variants for controlled comparisons on the same numeric target.",
+  "prompt_styles": [
+    "implicit",
+    "explicit"
+  ],
+  "default_prompt_style": "implicit",
+  "agent_input": "Only question text, questions.jsonl rows or public/problem.json. Manifest and evaluator/assignments.jsonl are evaluator-only.",
+  "language": {
+    "source_questions": "en",
+    "agent_instructions": "en",
+    "documentation": "fr"
+  },
+  "items": [
+    {
+      "task_id": "gsm8k_0001",
+      "source_index": 130,
+      "leader_id": "agent_01",
+      "peer_id": "agent_02",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0001/complete",
+        "split10": "tasks/gsm8k_0001/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0002",
+      "source_index": 902,
+      "leader_id": "agent_02",
+      "peer_id": "agent_03",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0002/complete",
+        "split10": "tasks/gsm8k_0002/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0003",
+      "source_index": 446,
+      "leader_id": "agent_03",
+      "peer_id": "agent_04",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0003/complete",
+        "split10": "tasks/gsm8k_0003/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0004",
+      "source_index": 249,
+      "leader_id": "agent_04",
+      "peer_id": "agent_05",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0004/complete",
+        "split10": "tasks/gsm8k_0004/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0005",
+      "source_index": 61,
+      "leader_id": "agent_05",
+      "peer_id": "agent_06",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0005/complete",
+        "split10": "tasks/gsm8k_0005/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0006",
+      "source_index": 1302,
+      "leader_id": "agent_06",
+      "peer_id": "agent_07",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0006/complete",
+        "split10": "tasks/gsm8k_0006/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0007",
+      "source_index": 1203,
+      "leader_id": "agent_07",
+      "peer_id": "agent_08",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0007/complete",
+        "split10": "tasks/gsm8k_0007/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0008",
+      "source_index": 1255,
+      "leader_id": "agent_08",
+      "peer_id": "agent_09",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0008/complete",
+        "split10": "tasks/gsm8k_0008/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0009",
+      "source_index": 996,
+      "leader_id": "agent_09",
+      "peer_id": "agent_10",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0009/complete",
+        "split10": "tasks/gsm8k_0009/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0010",
+      "source_index": 171,
+      "leader_id": "agent_10",
+      "peer_id": "agent_01",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0010/complete",
+        "split10": "tasks/gsm8k_0010/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0011",
+      "source_index": 415,
+      "leader_id": "agent_01",
+      "peer_id": "agent_02",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0011/complete",
+        "split10": "tasks/gsm8k_0011/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0012",
+      "source_index": 164,
+      "leader_id": "agent_02",
+      "peer_id": "agent_03",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0012/complete",
+        "split10": "tasks/gsm8k_0012/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0013",
+      "source_index": 1021,
+      "leader_id": "agent_03",
+      "peer_id": "agent_04",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0013/complete",
+        "split10": "tasks/gsm8k_0013/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0014",
+      "source_index": 935,
+      "leader_id": "agent_04",
+      "peer_id": "agent_05",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0014/complete",
+        "split10": "tasks/gsm8k_0014/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0015",
+      "source_index": 1173,
+      "leader_id": "agent_05",
+      "peer_id": "agent_06",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0015/complete",
+        "split10": "tasks/gsm8k_0015/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0016",
+      "source_index": 1181,
+      "leader_id": "agent_06",
+      "peer_id": "agent_07",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0016/complete",
+        "split10": "tasks/gsm8k_0016/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0017",
+      "source_index": 116,
+      "leader_id": "agent_07",
+      "peer_id": "agent_08",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0017/complete",
+        "split10": "tasks/gsm8k_0017/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0018",
+      "source_index": 1241,
+      "leader_id": "agent_08",
+      "peer_id": "agent_09",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0018/complete",
+        "split10": "tasks/gsm8k_0018/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0019",
+      "source_index": 134,
+      "leader_id": "agent_09",
+      "peer_id": "agent_10",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0019/complete",
+        "split10": "tasks/gsm8k_0019/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0020",
+      "source_index": 698,
+      "leader_id": "agent_10",
+      "peer_id": "agent_01",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0020/complete",
+        "split10": "tasks/gsm8k_0020/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0021",
+      "source_index": 1125,
+      "leader_id": "agent_01",
+      "peer_id": "agent_02",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0021/complete",
+        "split10": "tasks/gsm8k_0021/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0022",
+      "source_index": 1044,
+      "leader_id": "agent_02",
+      "peer_id": "agent_03",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0022/complete",
+        "split10": "tasks/gsm8k_0022/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0023",
+      "source_index": 93,
+      "leader_id": "agent_03",
+      "peer_id": "agent_04",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0023/complete",
+        "split10": "tasks/gsm8k_0023/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0024",
+      "source_index": 945,
+      "leader_id": "agent_04",
+      "peer_id": "agent_05",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0024/complete",
+        "split10": "tasks/gsm8k_0024/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0025",
+      "source_index": 1068,
+      "leader_id": "agent_05",
+      "peer_id": "agent_06",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0025/complete",
+        "split10": "tasks/gsm8k_0025/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0026",
+      "source_index": 220,
+      "leader_id": "agent_06",
+      "peer_id": "agent_07",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0026/complete",
+        "split10": "tasks/gsm8k_0026/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0027",
+      "source_index": 995,
+      "leader_id": "agent_07",
+      "peer_id": "agent_08",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0027/complete",
+        "split10": "tasks/gsm8k_0027/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0028",
+      "source_index": 921,
+      "leader_id": "agent_08",
+      "peer_id": "agent_09",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0028/complete",
+        "split10": "tasks/gsm8k_0028/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0029",
+      "source_index": 141,
+      "leader_id": "agent_09",
+      "peer_id": "agent_10",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0029/complete",
+        "split10": "tasks/gsm8k_0029/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0030",
+      "source_index": 312,
+      "leader_id": "agent_10",
+      "peer_id": "agent_01",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0030/complete",
+        "split10": "tasks/gsm8k_0030/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0031",
+      "source_index": 482,
+      "leader_id": "agent_01",
+      "peer_id": "agent_02",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0031/complete",
+        "split10": "tasks/gsm8k_0031/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0032",
+      "source_index": 265,
+      "leader_id": "agent_02",
+      "peer_id": "agent_03",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0032/complete",
+        "split10": "tasks/gsm8k_0032/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0033",
+      "source_index": 221,
+      "leader_id": "agent_03",
+      "peer_id": "agent_04",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0033/complete",
+        "split10": "tasks/gsm8k_0033/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0034",
+      "source_index": 483,
+      "leader_id": "agent_04",
+      "peer_id": "agent_05",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0034/complete",
+        "split10": "tasks/gsm8k_0034/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0035",
+      "source_index": 518,
+      "leader_id": "agent_05",
+      "peer_id": "agent_06",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0035/complete",
+        "split10": "tasks/gsm8k_0035/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0036",
+      "source_index": 690,
+      "leader_id": "agent_06",
+      "peer_id": "agent_07",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0036/complete",
+        "split10": "tasks/gsm8k_0036/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0037",
+      "source_index": 337,
+      "leader_id": "agent_07",
+      "peer_id": "agent_08",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0037/complete",
+        "split10": "tasks/gsm8k_0037/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0038",
+      "source_index": 666,
+      "leader_id": "agent_08",
+      "peer_id": "agent_09",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0038/complete",
+        "split10": "tasks/gsm8k_0038/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0039",
+      "source_index": 280,
+      "leader_id": "agent_09",
+      "peer_id": "agent_10",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0039/complete",
+        "split10": "tasks/gsm8k_0039/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0040",
+      "source_index": 345,
+      "leader_id": "agent_10",
+      "peer_id": "agent_01",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0040/complete",
+        "split10": "tasks/gsm8k_0040/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0041",
+      "source_index": 468,
+      "leader_id": "agent_01",
+      "peer_id": "agent_02",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0041/complete",
+        "split10": "tasks/gsm8k_0041/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0042",
+      "source_index": 1104,
+      "leader_id": "agent_02",
+      "peer_id": "agent_03",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0042/complete",
+        "split10": "tasks/gsm8k_0042/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0043",
+      "source_index": 944,
+      "leader_id": "agent_03",
+      "peer_id": "agent_04",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0043/complete",
+        "split10": "tasks/gsm8k_0043/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0044",
+      "source_index": 227,
+      "leader_id": "agent_04",
+      "peer_id": "agent_05",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0044/complete",
+        "split10": "tasks/gsm8k_0044/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0045",
+      "source_index": 573,
+      "leader_id": "agent_05",
+      "peer_id": "agent_06",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0045/complete",
+        "split10": "tasks/gsm8k_0045/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0046",
+      "source_index": 660,
+      "leader_id": "agent_06",
+      "peer_id": "agent_07",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0046/complete",
+        "split10": "tasks/gsm8k_0046/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0047",
+      "source_index": 112,
+      "leader_id": "agent_07",
+      "peer_id": "agent_08",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0047/complete",
+        "split10": "tasks/gsm8k_0047/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0048",
+      "source_index": 78,
+      "leader_id": "agent_08",
+      "peer_id": "agent_09",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0048/complete",
+        "split10": "tasks/gsm8k_0048/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0049",
+      "source_index": 683,
+      "leader_id": "agent_09",
+      "peer_id": "agent_10",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0049/complete",
+        "split10": "tasks/gsm8k_0049/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0050",
+      "source_index": 488,
+      "leader_id": "agent_10",
+      "peer_id": "agent_01",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0050/complete",
+        "split10": "tasks/gsm8k_0050/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0051",
+      "source_index": 889,
+      "leader_id": "agent_01",
+      "peer_id": "agent_02",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0051/complete",
+        "split10": "tasks/gsm8k_0051/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0052",
+      "source_index": 968,
+      "leader_id": "agent_02",
+      "peer_id": "agent_03",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0052/complete",
+        "split10": "tasks/gsm8k_0052/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0053",
+      "source_index": 145,
+      "leader_id": "agent_03",
+      "peer_id": "agent_04",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0053/complete",
+        "split10": "tasks/gsm8k_0053/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0054",
+      "source_index": 314,
+      "leader_id": "agent_04",
+      "peer_id": "agent_05",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0054/complete",
+        "split10": "tasks/gsm8k_0054/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0055",
+      "source_index": 295,
+      "leader_id": "agent_05",
+      "peer_id": "agent_06",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0055/complete",
+        "split10": "tasks/gsm8k_0055/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0056",
+      "source_index": 356,
+      "leader_id": "agent_06",
+      "peer_id": "agent_07",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0056/complete",
+        "split10": "tasks/gsm8k_0056/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0057",
+      "source_index": 1182,
+      "leader_id": "agent_07",
+      "peer_id": "agent_08",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0057/complete",
+        "split10": "tasks/gsm8k_0057/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0058",
+      "source_index": 158,
+      "leader_id": "agent_08",
+      "peer_id": "agent_09",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0058/complete",
+        "split10": "tasks/gsm8k_0058/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0059",
+      "source_index": 447,
+      "leader_id": "agent_09",
+      "peer_id": "agent_10",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0059/complete",
+        "split10": "tasks/gsm8k_0059/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0060",
+      "source_index": 903,
+      "leader_id": "agent_10",
+      "peer_id": "agent_01",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0060/complete",
+        "split10": "tasks/gsm8k_0060/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0061",
+      "source_index": 874,
+      "leader_id": "agent_01",
+      "peer_id": "agent_02",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0061/complete",
+        "split10": "tasks/gsm8k_0061/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0062",
+      "source_index": 162,
+      "leader_id": "agent_02",
+      "peer_id": "agent_03",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0062/complete",
+        "split10": "tasks/gsm8k_0062/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0063",
+      "source_index": 180,
+      "leader_id": "agent_03",
+      "peer_id": "agent_04",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0063/complete",
+        "split10": "tasks/gsm8k_0063/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0064",
+      "source_index": 398,
+      "leader_id": "agent_04",
+      "peer_id": "agent_05",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0064/complete",
+        "split10": "tasks/gsm8k_0064/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0065",
+      "source_index": 405,
+      "leader_id": "agent_05",
+      "peer_id": "agent_06",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0065/complete",
+        "split10": "tasks/gsm8k_0065/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0066",
+      "source_index": 756,
+      "leader_id": "agent_06",
+      "peer_id": "agent_07",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0066/complete",
+        "split10": "tasks/gsm8k_0066/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0067",
+      "source_index": 358,
+      "leader_id": "agent_07",
+      "peer_id": "agent_08",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0067/complete",
+        "split10": "tasks/gsm8k_0067/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0068",
+      "source_index": 189,
+      "leader_id": "agent_08",
+      "peer_id": "agent_09",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0068/complete",
+        "split10": "tasks/gsm8k_0068/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0069",
+      "source_index": 436,
+      "leader_id": "agent_09",
+      "peer_id": "agent_10",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0069/complete",
+        "split10": "tasks/gsm8k_0069/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0070",
+      "source_index": 878,
+      "leader_id": "agent_10",
+      "peer_id": "agent_01",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0070/complete",
+        "split10": "tasks/gsm8k_0070/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0071",
+      "source_index": 89,
+      "leader_id": "agent_01",
+      "peer_id": "agent_02",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0071/complete",
+        "split10": "tasks/gsm8k_0071/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0072",
+      "source_index": 132,
+      "leader_id": "agent_02",
+      "peer_id": "agent_03",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0072/complete",
+        "split10": "tasks/gsm8k_0072/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0073",
+      "source_index": 1303,
+      "leader_id": "agent_03",
+      "peer_id": "agent_04",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0073/complete",
+        "split10": "tasks/gsm8k_0073/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0074",
+      "source_index": 1290,
+      "leader_id": "agent_04",
+      "peer_id": "agent_05",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0074/complete",
+        "split10": "tasks/gsm8k_0074/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0075",
+      "source_index": 445,
+      "leader_id": "agent_05",
+      "peer_id": "agent_06",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0075/complete",
+        "split10": "tasks/gsm8k_0075/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0076",
+      "source_index": 1221,
+      "leader_id": "agent_06",
+      "peer_id": "agent_07",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0076/complete",
+        "split10": "tasks/gsm8k_0076/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0077",
+      "source_index": 1053,
+      "leader_id": "agent_07",
+      "peer_id": "agent_08",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0077/complete",
+        "split10": "tasks/gsm8k_0077/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0078",
+      "source_index": 525,
+      "leader_id": "agent_08",
+      "peer_id": "agent_09",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0078/complete",
+        "split10": "tasks/gsm8k_0078/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0079",
+      "source_index": 215,
+      "leader_id": "agent_09",
+      "peer_id": "agent_10",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0079/complete",
+        "split10": "tasks/gsm8k_0079/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0080",
+      "source_index": 248,
+      "leader_id": "agent_10",
+      "peer_id": "agent_01",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0080/complete",
+        "split10": "tasks/gsm8k_0080/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0081",
+      "source_index": 709,
+      "leader_id": "agent_01",
+      "peer_id": "agent_02",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0081/complete",
+        "split10": "tasks/gsm8k_0081/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0082",
+      "source_index": 768,
+      "leader_id": "agent_02",
+      "peer_id": "agent_03",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0082/complete",
+        "split10": "tasks/gsm8k_0082/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0083",
+      "source_index": 347,
+      "leader_id": "agent_03",
+      "peer_id": "agent_04",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0083/complete",
+        "split10": "tasks/gsm8k_0083/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0084",
+      "source_index": 1059,
+      "leader_id": "agent_04",
+      "peer_id": "agent_05",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0084/complete",
+        "split10": "tasks/gsm8k_0084/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0085",
+      "source_index": 1111,
+      "leader_id": "agent_05",
+      "peer_id": "agent_06",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0085/complete",
+        "split10": "tasks/gsm8k_0085/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0086",
+      "source_index": 439,
+      "leader_id": "agent_06",
+      "peer_id": "agent_07",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0086/complete",
+        "split10": "tasks/gsm8k_0086/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0087",
+      "source_index": 782,
+      "leader_id": "agent_07",
+      "peer_id": "agent_08",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0087/complete",
+        "split10": "tasks/gsm8k_0087/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0088",
+      "source_index": 361,
+      "leader_id": "agent_08",
+      "peer_id": "agent_09",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0088/complete",
+        "split10": "tasks/gsm8k_0088/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0089",
+      "source_index": 919,
+      "leader_id": "agent_09",
+      "peer_id": "agent_10",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0089/complete",
+        "split10": "tasks/gsm8k_0089/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0090",
+      "source_index": 616,
+      "leader_id": "agent_10",
+      "peer_id": "agent_01",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0090/complete",
+        "split10": "tasks/gsm8k_0090/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0091",
+      "source_index": 994,
+      "leader_id": "agent_01",
+      "peer_id": "agent_02",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0091/complete",
+        "split10": "tasks/gsm8k_0091/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0092",
+      "source_index": 1223,
+      "leader_id": "agent_02",
+      "peer_id": "agent_03",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0092/complete",
+        "split10": "tasks/gsm8k_0092/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0093",
+      "source_index": 797,
+      "leader_id": "agent_03",
+      "peer_id": "agent_04",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0093/complete",
+        "split10": "tasks/gsm8k_0093/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0094",
+      "source_index": 292,
+      "leader_id": "agent_04",
+      "peer_id": "agent_05",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0094/complete",
+        "split10": "tasks/gsm8k_0094/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0095",
+      "source_index": 701,
+      "leader_id": "agent_05",
+      "peer_id": "agent_06",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0095/complete",
+        "split10": "tasks/gsm8k_0095/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0096",
+      "source_index": 138,
+      "leader_id": "agent_06",
+      "peer_id": "agent_07",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0096/complete",
+        "split10": "tasks/gsm8k_0096/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0097",
+      "source_index": 815,
+      "leader_id": "agent_07",
+      "peer_id": "agent_08",
+      "primary_variant": "complete",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0097/complete",
+        "split10": "tasks/gsm8k_0097/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0098",
+      "source_index": 510,
+      "leader_id": "agent_08",
+      "peer_id": "agent_09",
+      "primary_variant": "split10",
+      "cue": "question_mark",
+      "variants": {
+        "complete": "tasks/gsm8k_0098/complete",
+        "split10": "tasks/gsm8k_0098/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0099",
+      "source_index": 100,
+      "leader_id": "agent_09",
+      "peer_id": "agent_10",
+      "primary_variant": "complete",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0099/complete",
+        "split10": "tasks/gsm8k_0099/split10"
+      }
+    },
+    {
+      "task_id": "gsm8k_0100",
+      "source_index": 1019,
+      "leader_id": "agent_10",
+      "peer_id": "agent_01",
+      "primary_variant": "split10",
+      "cue": "omitted_datum",
+      "variants": {
+        "complete": "tasks/gsm8k_0100/complete",
+        "split10": "tasks/gsm8k_0100/split10"
+      }
+    }
+  ]
+}

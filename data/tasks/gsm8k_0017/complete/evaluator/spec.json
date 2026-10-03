@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "task_id": "gsm8k_0017",
+  "variant": "complete",
+  "agent_ids": [
+    "agent_01",
+    "agent_02",
+    "agent_03",
+    "agent_04",
+    "agent_05",
+    "agent_06",
+    "agent_07",
+    "agent_08",
+    "agent_09",
+    "agent_10"
+  ],
+  "question_template": "Katy makes coffee using teaspoons of sugar and cups of water in the ratio of {{n01}}:13. If she used a total of {{n02}} teaspoons of sugar and cups of water, calculate the number of teaspoonfuls of sugar she used.",
+  "multiplier": 2,
+  "expected_adjustment_ids": [
+    "delta_01",
+    "delta_02",
+    "delta_03",
+    "delta_04",
+    "delta_05",
+    "delta_06",
+    "delta_07",
+    "delta_08",
+    "delta_09",
+    "delta_10"
+  ],
+  "prompts": {
+    "implicit": "Katy makes coffee using teaspoons of sugar and cups of water in the ratio of ?:13. If she used a total of 120 teaspoons of sugar and cups of water, calculate the number of teaspoonfuls of sugar she used.\n\nLet r be the answer above. Report Y = 2 * r + c. Case correction c = ?.",
+    "explicit": "Katy makes coffee using teaspoons of sugar and cups of water in the ratio of ?:13. If she used a total of 120 teaspoons of sugar and cups of water, calculate the number of teaspoonfuls of sugar she used.\n\nLet r be the answer above. Report Y = 2 * r + c. Case correction c = ?.\n\nConsult notes.json in your environment. It contains case information, any missing quantity and correction records. The correction c is the sum of delta_01 through delta_10. Your copy contains the full set of records. Count repeated IDs only once."
+  },
+  "cue": "question_mark",
+  "missing_parameter_id": "n01",
+  "resource_name": "notes.json"
+}

@@ -1,0 +1,4 @@
+{
+  "task_id": "gsm8k_0009",
+  "question": "Four children are playing together—Akbar, Alessandro, Helene, and Wilfred. Helene is twice as old as the average age of the group, and the total age of the children is 20. If Akbar is ? years old and Alessandro is 4 years old, calculate the age of Wilfred.\n\nLet r be the answer above. Report Y = 5 * r + c. Case correction c = ?."
+}

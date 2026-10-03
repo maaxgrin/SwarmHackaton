@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "task_id": "gsm8k_0073",
+  "variant": "split10",
+  "agent_ids": [
+    "agent_01",
+    "agent_02",
+    "agent_03",
+    "agent_04",
+    "agent_05",
+    "agent_06",
+    "agent_07",
+    "agent_08",
+    "agent_09",
+    "agent_10"
+  ],
+  "question_template": "Nate's dog can dig six holes a day. He digs for {{n01}} days while Nate is on vacation. When Nate gets home, he starts filling in {{n02}} holes a day, but the dog keeps digging {{n03}} new holes every night. How many weeks does it take him to fill in all the holes?",
+  "multiplier": 4,
+  "expected_adjustment_ids": [
+    "delta_01",
+    "delta_02",
+    "delta_03",
+    "delta_04",
+    "delta_05",
+    "delta_06",
+    "delta_07",
+    "delta_08",
+    "delta_09",
+    "delta_10"
+  ],
+  "prompts": {
+    "implicit": "Nate's dog can dig six holes a day. He digs for ? days while Nate is on vacation. When Nate gets home, he starts filling in 9 holes a day, but the dog keeps digging 6 new holes every night. How many weeks does it take him to fill in all the holes?\n\nLet r be the answer above. Report Y = 4 * r + c. Case correction c = ?.",
+    "explicit": "Nate's dog can dig six holes a day. He digs for ? days while Nate is on vacation. When Nate gets home, he starts filling in 9 holes a day, but the dog keeps digging 6 new holes every night. How many weeks does it take him to fill in all the holes?\n\nLet r be the answer above. Report Y = 4 * r + c. Case correction c = ?.\n\nConsult notes.json in your environment. It contains case information, any missing quantity and correction records. The correction c is the sum of delta_01 through delta_10. Records are distributed across the ten agents. Each agent holds one independent correction contribution; collect all ten through the message board."
+  },
+  "cue": "question_mark",
+  "missing_parameter_id": "n01",
+  "resource_name": "notes.json"
+}

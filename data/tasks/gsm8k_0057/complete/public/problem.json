@@ -1,0 +1,4 @@
+{
+  "task_id": "gsm8k_0057",
+  "question": "Bob spends $27000 distributed between 3 schools to buy books.  He can buy ? books for $500.  How many books can he buy per school?\n\nLet r be the answer above. Report Y = 9 * r + c. Case correction c = ?."
+}

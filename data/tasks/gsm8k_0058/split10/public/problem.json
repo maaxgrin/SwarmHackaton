@@ -1,0 +1,4 @@
+{
+  "task_id": "gsm8k_0058",
+  "question": "Raphael went to buy some school supplies. He bought 4 pens which cost $? each, 2 notebooks which cost $4 each, and a rim of bond paper which cost $20. How much did Raphael spend on everything?\n\nLet r be the answer above. Report Y = 9 * r + c. Case correction c = ?."
+}

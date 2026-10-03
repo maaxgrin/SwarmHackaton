@@ -1,0 +1,3 @@
+There are currently 3 red balls, 11 blue balls, and 25 green balls in the store. Red balls cost $9, Blue balls cost $? and green balls cost $3. How much will the store have received after all the balls are sold?
+
+Let r be the answer above. Report Y = 3 * r + c. Case correction c = ?.

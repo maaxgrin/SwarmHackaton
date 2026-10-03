@@ -1,0 +1,3 @@
+Jana has ? puppies. Two thirds of Jana's puppies are Pomeranians. One third of the Pomeranians are girls. How many girl Pomeranians does Jana have?
+
+Let r be the answer above. Report Y = 8 * r + c. Case correction c = ?.

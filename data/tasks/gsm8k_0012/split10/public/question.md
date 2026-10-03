@@ -1,0 +1,3 @@
+Jackie is trying to decide whether to do her taxes herself or hire an accountant. If she does the taxes herself, she'll be able to do 3 fewer hours of freelance work, losing $35/hour in missed income. The accountant charges $90. How much more money will she have if she hires the accountant?
+
+Let r be the answer above. Report 2 times r, plus the case correction.
