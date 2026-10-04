@@ -55,7 +55,8 @@ class ResponsesProviderTests(unittest.TestCase):
         path, body = self.requests[1]
         self.assertEqual(path,'/v1/responses')
         self.assertFalse(body['store'])
-        self.assertEqual(body['reasoning'],{'effort':'low'})
+        self.assertEqual(body['reasoning'],{'effort':'low','summary':'auto'})
+        self.assertNotIn('reasoning_text', message)
         self.assertNotIn('temperature',body)
         self.assertEqual(body['max_output_tokens'],4096)
         self.assertEqual(body['tools'][0],{'type':'function',**tool['function']})

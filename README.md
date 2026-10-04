@@ -25,7 +25,7 @@ Open **http://127.0.0.1:8766**. The lab UI needs **Python 3.10+** only (stdlib; 
 | Element | Settings and behavior |
 | --- | --- |
 | Group | 1 to 32 agents, identical or different models, optional leader |
-| Scenarios | Peer pressure, free experiment, communication, altruism with Python, group misalignment, and ARC-AGI-3 |
+| Scenarios | Peer pressure (split data or asset aggregation), free experiment, communication, altruism with Python, group misalignment, and ARC-AGI-3 |
 | Prompts | Customizable common prompt, private instructions per agent, preview of the exact prompt |
 | Task and files | Included corpus or free task; private text / JSON files per agent |
 | Tool calls | Global or per-agent selection among file tools, `read_board`, `post_note`, `submit_answer`, isolated Python, and ARC tools |

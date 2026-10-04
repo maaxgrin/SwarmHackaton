@@ -14,12 +14,14 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .common import ROOT, read_json, write_json
-from .lab_engine import DEFAULT_COMMON_PROMPT, DEFAULT_SOLO_COMMON_PROMPT, DEFAULT_COMMUNICATION_PROMPT, DEFAULT_RESTRICTION, TOOLS, GROUP_TOOLS, PYTHON_TOOL, ARC_TOOLS, ARC_PROMPT, LabRun
+from .lab_engine import DEFAULT_COMMON_PROMPT, DEFAULT_SOLO_COMMON_PROMPT, DEFAULT_COMMUNICATION_PROMPT, DEFAULT_RESTRICTION, ASSET_RESTRICTION, TOOLS, GROUP_TOOLS, PYTHON_TOOL, ARC_TOOLS, ACCOUNT_TOOL, ARC_PROMPT, LabRun
 from .lab_storage import load_run
+from .pdf_export import render_run_pdf
 from .providers import ProviderError, ProviderRegistry
 
 _TITLE_SUFFIX = re.compile(r"^(.*) \(\d+\)$")
 _MAX_TITLE_LEN = 150
+_CLIENT_DISCONNECTED = (BrokenPipeError, ConnectionAbortedError, ConnectionResetError)
 
 
 def unique_experiment_title(title, existing_titles):
@@ -76,8 +78,9 @@ class LabManager:
         with self.lock:
             states = list(self.archives.values()) + [r.snapshot() for r in self.runs.values()]
             return {"tasks": self.tasks, "providers": self.registry.public(), "restriction_prompt": DEFAULT_RESTRICTION,
+                    "asset_restriction_prompt": ASSET_RESTRICTION,
                     "common_prompt": DEFAULT_COMMON_PROMPT, "solo_common_prompt": DEFAULT_SOLO_COMMON_PROMPT,
-                    "communication_prompt": DEFAULT_COMMUNICATION_PROMPT, "arc_prompt": ARC_PROMPT, "tools": copy.deepcopy(TOOLS + [t for t in ARC_TOOLS if t["function"]["name"] not in {x["function"]["name"] for x in TOOLS}]),
+                    "communication_prompt": DEFAULT_COMMUNICATION_PROMPT, "arc_prompt": ARC_PROMPT, "tools": copy.deepcopy(TOOLS + [t for t in ARC_TOOLS if t["function"]["name"] not in {x["function"]["name"] for x in TOOLS}] + [ACCOUNT_TOOL]),
                     "runs": [self.summary(s) for s in sorted(states, key=lambda s: s["created_at"], reverse=True)]}
 
     def create(self, config):
@@ -113,15 +116,20 @@ class LabManager:
             raise ValueError("Unknown agent")
         folder = self.work_dir / "runs" / run_id
         history = copy.deepcopy(self.archive_histories[run_id].get(agent, []))
+        account = None
         if state["config"].get("scenario") in ("custom", "communication", "group_misalignment", "altruism", "arc"):
             files = state.get("workspace_state", state["config"].get("workspace_files", {})).get(agent, {})
             file = files
+        elif state["config"].get("scenario") == "asset_aggregation":
+            account = state.get("accounts", {}).get(agent)
+            file, files = account, {}
         else:
             file = read_json(folder / "agents" / agent / "notes.json")
             files = {"notes.json": file}
         names = state["config"].get("agent_tools", {}).get(agent, state["config"].get("enabled_tools", [t["function"]["name"] for t in TOOLS]))
         return {"agent_id": agent, "system_prompt": history[0]["content"] if history else "History unavailable for this agent.",
                 "question": state["question"], "file": file, "files": files,
+                **({"account": account} if account is not None else {}),
                 "tools": state.get("tool_schemas", {}).get(agent, [t for t in TOOLS if t["function"]["name"] in names]),
                 "answers": state["answers"][agent], "history": history,
                 **({"archive_warnings": state["archive_warnings"]} if state.get("archive_warnings") else {})}
@@ -134,6 +142,9 @@ class LabManager:
                 state = self.snapshot(run_id)
                 return {**state, "schema_version": 1,
                         "participants": {a: self.inspect(run_id, a) for a in state["config"]["agents"]}}
+
+    def export_pdf(self, run_id, kind):
+        return render_run_pdf(self.export(run_id), kind)
 
     def control(self, run_id, action):
         with self.lock:
@@ -158,9 +169,8 @@ class LabManager:
                 raise ValueError("Execution is already in progress")
             if not run.remaining_agents():
                 raise ValueError("Call limit reached; create a new run to use a fresh budget")
-            if run.config["mode"] == "demo" and (run.config["scenario"] != "peer_pressure" or
-                    any(len(run.tools_for(a)) != len(TOOLS) for a in run.agents)):
-                raise ValueError("Scripted demo uses peer pressure and its five tools; choose Live models for a free configuration")
+            if run.config["mode"] == "demo" and not run.demo_supported():
+                raise ValueError("Scripted demo uses a peer pressure type with all of its default tools; choose Live models for a free configuration")
             if run.config["mode"] == "live":
                 run.freeze_providers()
             run.pause_requested.clear()
@@ -222,8 +232,11 @@ def make_lab_server(manager, port=8766):
             self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
             if attachment:
                 self.send_header("Content-Disposition", 'attachment; filename="' + attachment + '"')
-            self.end_headers()
-            self.wfile.write(data)
+            try:
+                self.end_headers()
+                self.wfile.write(data)
+            except _CLIENT_DISCONNECTED:
+                return
 
         def origin_ok(self):
             host = self.headers.get("Host", "")
@@ -252,6 +265,10 @@ def make_lab_server(manager, port=8766):
                     elif len(parts) >= 3 and parts[:2] == ["api", "runs"]:
                         if len(parts) == 5 and parts[3] == "agents":
                             self.send(200, manager.inspect(parts[2], parts[4]))
+                        elif len(parts) == 4 and parts[3] in ("export.pdf", "chats.pdf"):
+                            kind = "results" if parts[3] == "export.pdf" else "chats"
+                            suffix = "" if kind == "results" else "-chats"
+                            self.send(200, manager.export_pdf(parts[2], kind), "application/pdf", "swarm-lab-" + parts[2] + suffix + ".pdf")
                         elif len(parts) == 4 and parts[3] == "export":
                             self.send(200, manager.export(parts[2]), attachment="swarm-lab-" + parts[2] + ".json")
                         elif len(parts) == 3:
@@ -279,7 +296,8 @@ def make_lab_server(manager, port=8766):
                 elif path == "/api/preview":
                     run = LabRun(body, manager.data_dir, manager.work_dir / "preview", manager.registry, preview=True)
                     self.send(200, {"question": run.question, "agents": {a: {"prompt": run.prompt(a), "file": run.files[a],
-                              "files": run.workspaces[a], "tools": run.tools_for(a)} for a in run.agents}})
+                              "files": run.workspaces[a], "tools": run.tools_for(a),
+                              **({"account": run.accounts[a]} if run.accounts else {})} for a in run.agents}})
                 elif path == "/api/runs":
                     self.send(201, manager.create(body))
                 elif len(parts) == 4 and parts[:2] == ["api", "runs"] and parts[3] == "control":
@@ -288,7 +306,9 @@ def make_lab_server(manager, port=8766):
                     self.send(404, {"error": "Unknown route"})
             except (ValueError, TypeError, KeyError, ProviderError) as exc:
                 self.send(400, {"error": str(exc)})
-            except OSError:
+            except OSError as exc:
+                if isinstance(exc, _CLIENT_DISCONNECTED) or getattr(exc, "winerror", None) == 10053:
+                    return
                 self.send(500, {"error": "Local read or write error"})
     return ThreadingHTTPServer(("127.0.0.1", port), Handler)
 

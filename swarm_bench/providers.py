@@ -128,6 +128,8 @@ def anthropic_messages(messages):
         role = "user" if m["role"] == "tool" else m["role"]
         if m["role"] == "tool":
             blocks = [{"type": "tool_result", "tool_use_id": m["tool_call_id"], "content": m["content"]}]
+        elif m.get("_anthropic_content"):
+            blocks = copy.deepcopy(m["_anthropic_content"])
         else:
             blocks = [{"type": "text", "text": m["content"]}] if m.get("content") else []
             for call in m.get("tool_calls", []):
@@ -160,12 +162,217 @@ def responses_input(messages):
     return result
 
 
+def _block_text(block, depth=0):
+    """Readable strings from one reasoning block. Encrypted blobs are not text."""
+    if depth > 6:
+        return []
+    if isinstance(block, str):
+        return [block.strip()] if block.strip() else []
+    if isinstance(block, list):
+        found = []
+        for item in block:
+            found.extend(_block_text(item, depth + 1))
+        return found
+    if not isinstance(block, dict):
+        return []
+    kind = str(block.get("type") or "")
+    if "encrypted" in kind or kind == "redacted_thinking":
+        return []
+    found = []
+    for key in ("text", "thinking", "summary", "reasoning", "content"):
+        if key in block:
+            found.extend(_block_text(block[key], depth + 1))
+    return found
+
+
+def _classify_reasoning(value):
+    """Split provider reasoning into raw text and summaries."""
+    raw, summary = [], []
+    blocks = value if isinstance(value, list) else [value]
+    for block in blocks:
+        if isinstance(block, str):
+            if block.strip():
+                raw.append(block.strip())
+            continue
+        if not isinstance(block, dict):
+            continue
+        kind = str(block.get("type") or "")
+        if "encrypted" in kind or kind == "redacted_thinking":
+            continue
+        texts = _block_text(block)
+        if not texts:
+            continue
+        if block.get("thought") is True or _google_thought_part(block) or "summary" in kind or kind in ("thinking", "summary_text"):
+            summary.extend(texts)
+        else:
+            raw.extend(texts)
+    return raw, summary
+
+
+def _finish_reasoning(raw, summary):
+    def unique(parts):
+        seen = []
+        for part in parts:
+            if part and part not in seen:
+                seen.append(part)
+        return seen
+
+    raw, summary = unique(raw), unique(summary)
+    if raw:
+        return "\n\n".join(raw), "transcript"
+    if summary:
+        return "\n\n".join(summary), "summary"
+    return "", ""
+
+
+def _google_thought_part(block):
+    """Gemini's OpenAI layer marks a summary part with extra_content.google.thought."""
+    if not isinstance(block, dict):
+        return False
+    extra = block.get("extra_content")
+    google = extra.get("google") if isinstance(extra, dict) else None
+    return isinstance(google, dict) and google.get("thought") is True
+
+
+def _thought_block(block):
+    if not isinstance(block, dict):
+        return False
+    if block.get("thought") is True or _google_thought_part(block):
+        return True
+    kind = str(block.get("type") or "")
+    return kind in ("thinking", "reasoning", "reasoning_text") or kind.startswith("reasoning.")
+
+
+def split_thought_tags(text):
+    """Separate a Gemini <thought> wrapper from the text that should be posted."""
+    if not isinstance(text, str) or "<thought" not in text.lower():
+        return text if isinstance(text, str) else "", ""
+    opens = list(re.finditer(r"<thought>", text, re.IGNORECASE))
+    closes = list(re.finditer(r"</thought>", text, re.IGNORECASE))
+    if not opens:
+        return text, ""
+    if not closes:
+        inner = text[opens[0].end():].strip()
+        return text[:opens[0].start()].strip(), inner
+    inner = text[opens[0].end():closes[-1].start()]
+    inner = re.sub(r"</?thought>", "", inner, flags=re.IGNORECASE).strip()
+    visible = (text[:opens[0].start()] + text[closes[-1].end():]).strip()
+    return visible, inner
+
+
+def chat_reasoning(original):
+    """Readable reasoning plus, when content is a part list, the visible answer."""
+    raw, summary = [], []
+    for field in ("reasoning", "reasoning_content"):
+        value = original.get(field)
+        if isinstance(value, str):
+            if value.strip():
+                raw.append(value.strip())
+        elif isinstance(value, (list, dict)):
+            found_raw, found_summary = _classify_reasoning(value)
+            raw.extend(found_raw)
+            summary.extend(found_summary)
+    if original.get("reasoning_details") is not None:
+        found_raw, found_summary = _classify_reasoning(original["reasoning_details"])
+        raw.extend(found_raw)
+        summary.extend(found_summary)
+    content = original.get("content")
+    visible = content if isinstance(content, str) else ""
+    provider_content = None
+    if isinstance(content, list):
+        thought = False
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                if block.strip():
+                    parts.append(block.strip())
+                continue
+            if _thought_block(block):
+                thought = True
+                found_raw, found_summary = _classify_reasoning(block)
+                raw.extend(found_raw)
+                summary.extend(found_summary)
+                continue
+            if isinstance(block, dict):
+                if block.get("extra_content"):
+                    thought = True
+                text = block.get("text") if isinstance(block.get("text"), str) else block.get("content")
+                if isinstance(text, str) and text.strip():
+                    parts.append(text.strip())
+        if thought:
+            visible = "\n".join(parts)
+            provider_content = content
+        else:
+            visible = content
+    elif content is None:
+        visible = ""
+    elif not isinstance(content, str):
+        raise TypeError("content must be text or a list of parts")
+    if isinstance(visible, str):
+        visible, tagged = split_thought_tags(visible)
+        if tagged:
+            summary.append(tagged)
+    text, kind = _finish_reasoning(raw, summary)
+    return visible, provider_content, text, kind
+
+
+def responses_reasoning(items):
+    """OpenAI returns a summary on reasoning items, not the raw chain of thought."""
+    raw, summary = [], []
+    for item in items:
+        if not isinstance(item, dict) or item.get("type") != "reasoning":
+            continue
+        summary_value = item.get("summary")
+        if isinstance(summary_value, str) and summary_value.strip():
+            summary.append(summary_value.strip())
+        elif isinstance(summary_value, list):
+            for block in summary_value:
+                summary.extend(_block_text(block))
+        elif isinstance(summary_value, dict):
+            summary.extend(_block_text(summary_value))
+        content = item.get("content")
+        if content:
+            found_raw, found_summary = _classify_reasoning(content)
+            raw.extend(found_raw)
+            summary.extend(found_summary)
+    return _finish_reasoning(raw, summary)
+
+
+def relay_messages(messages, kind):
+    """Drop display-only fields. Keep the provider's own reasoning for the next call."""
+    private = set()
+    if kind == "openai_responses":
+        private.add("_response_items")
+    if kind == "anthropic":
+        private.add("_anthropic_content")
+    relayed = []
+    for message in messages:
+        item = {}
+        for key, value in message.items():
+            if key in ("reasoning_text", "reasoning_kind", "_board_note_ids", "_board_source_agent"):
+                continue
+            if key == "_provider_content":
+                if kind == "openai_compatible":
+                    item["content"] = value
+                continue
+            if key.startswith("_") and key not in private:
+                continue
+            item[key] = value
+        relayed.append(item)
+    return relayed
+
+
+def _store_reasoning(msg, text, kind):
+    if text:
+        msg["reasoning_text"] = text
+        msg["reasoning_kind"] = kind
+
+
 def completion(profile, key, messages, tools, output_budget, temperature=None):
     """One HTTP completion; caller owns tool execution and bounded iteration."""
     # Internal Swarm Lab delivery metadata is for audit/exposure accounting only.
     # It must never be sent as an unknown chat-message field to a provider.
-    provider_messages = [{k: v for k, v in message.items() if k != "_board_note_ids" and k != "_board_source_agent"}
-                         for message in messages]
+    provider_messages = relay_messages(messages, profile["kind"])
     if profile["kind"] == "anthropic":
         endpoint = profile["base_url"] + "/messages"
         payload = {"model": profile["model"], "max_tokens": output_budget,
@@ -181,6 +388,9 @@ def completion(profile, key, messages, tools, output_budget, temperature=None):
                    "tools": [{"type": "function", **copy.deepcopy(t["function"])} for t in tools]}
         if profile.get("reasoning_effort"):
             payload["reasoning"] = {"effort": profile["reasoning_effort"]}
+        # Summary is the readable text OpenAI will return. Raw reasoning stays encrypted.
+        if profile.get("reasoning_effort") != "none":
+            payload.setdefault("reasoning", {})["summary"] = "auto"
         headers = {"Authorization": "Bearer " + key} if key else {}
     else:
         endpoint = profile["base_url"] + "/chat/completions"
@@ -188,11 +398,25 @@ def completion(profile, key, messages, tools, output_budget, temperature=None):
                    profile.get("token_parameter", "max_tokens"): output_budget}
         if urlparse(profile["base_url"]).hostname == "openrouter.ai" and profile["model"] == "nvidia/nemotron-3-ultra-550b-a55b":
             payload["provider"] = {"max_price": {"prompt": 0.625, "completion": 3.125}}
-        if profile.get("reasoning_effort"):
-            if urlparse(profile["base_url"]).hostname == "openrouter.ai":
-                payload["reasoning"] = {"effort": profile["reasoning_effort"]}
+        host = urlparse(profile["base_url"]).hostname
+        effort = profile.get("reasoning_effort") or ""
+        if host == "generativelanguage.googleapis.com":
+            # reasoning_effort and thinking_config overlap. Together, Gemini keeps the
+            # effort and drops the thought summary. The level replaces the effort.
+            if effort == "none":
+                payload["reasoning_effort"] = "none"
             else:
-                payload["reasoning_effort"] = profile["reasoning_effort"]
+                thinking = {"include_thoughts": True}
+                if effort:
+                    thinking["thinking_level"] = {"xhigh": "high", "max": "high"}.get(effort, effort)
+                payload["extra_body"] = {"google": {"thinking_config": thinking}}
+        elif effort:
+            if host == "openrouter.ai":
+                payload["reasoning"] = {"effort": effort}
+                if effort != "none":
+                    payload["reasoning"]["exclude"] = False
+            else:
+                payload["reasoning_effort"] = effort
         headers = {"Authorization": "Bearer " + key} if key else {}
     if temperature is not None:
         payload["temperature"] = temperature
@@ -220,6 +444,7 @@ def completion(profile, key, messages, tools, output_budget, temperature=None):
         raise ProviderError("Response format incompatible with the chosen profile")
     usage = data.get("usage")
     reported_usage = None
+    omitted_thinking = 0
     if isinstance(usage, dict):
         reported_usage = {"input_tokens": usage.get("input_tokens", usage.get("prompt_tokens")),
                           "output_tokens": usage.get("output_tokens", usage.get("completion_tokens"))}
@@ -229,6 +454,16 @@ def completion(profile, key, messages, tools, output_budget, temperature=None):
         reasoning_tokens = details.get("reasoning_tokens") if isinstance(details, dict) else None
         if isinstance(reasoning_tokens, int) and not isinstance(reasoning_tokens, bool) and reasoning_tokens >= 0:
             reported_usage["reasoning_tokens"] = reasoning_tokens
+        else:
+            # Gemini's OpenAI layer bills thinking inside the output cap but often
+            # leaves it out of completion_tokens. total_tokens still includes it.
+            total = usage.get("total_tokens")
+            prompt, completion = reported_usage.get("input_tokens"), reported_usage.get("output_tokens")
+            if (isinstance(total, int) and not isinstance(total, bool) and isinstance(prompt, int)
+                    and isinstance(completion, int) and total > prompt + completion):
+                omitted_thinking = total - prompt - completion
+                reported_usage["reasoning_tokens"] = omitted_thinking
+                reported_usage["output_tokens"] = completion + omitted_thinking
         cost = usage.get("cost")
         if isinstance(cost, (int, float)) and not isinstance(cost, bool) and cost >= 0:
             reported_usage["cost_usd"] = cost
@@ -237,7 +472,10 @@ def completion(profile, key, messages, tools, output_budget, temperature=None):
         if (data.get("stop_reason") == "max_tokens" or
                 data.get("status") == "incomplete" and (data.get("incomplete_details") or {}).get("reason") == "max_output_tokens" or
                 any(c.get("finish_reason") == "length" for c in data.get("choices", []))):
-            raise ProviderError("Response hit the token limit before finishing. Increase the output budget.", usage=reported_usage)
+            message = "Response hit the token limit before finishing. Increase the output budget."
+            if omitted_thinking:
+                message += " Thinking tokens used the rest of the cap and were omitted from the visible output count."
+            raise ProviderError(message, usage=reported_usage)
         if profile["kind"] == "openai_responses":
             if data.get("status") != "completed" or not isinstance(data.get("output"), list):
                 raise ProviderError("Responses API call did not complete.", usage=reported_usage)
@@ -246,18 +484,38 @@ def completion(profile, key, messages, tools, output_budget, temperature=None):
                 block.get("text", block.get("refusal", "")) for item in items if item["type"] == "message"
                 for block in item.get("content", []) if block["type"] in ("output_text", "refusal")),
                 "_response_items": copy.deepcopy(items)}
+            text, kind = responses_reasoning(items)
+            _store_reasoning(msg, text, kind)
             calls = [{"id": item["call_id"], "type": "function", "function": {
                 "name": item["name"], "arguments": item["arguments"]}}
                 for item in items if item["type"] == "function_call"]
         elif profile["kind"] == "anthropic":
-            msg = {"role": "assistant", "content": "\n".join(b["text"] for b in data["content"] if b["type"] == "text")}
+            blocks = data["content"]
+            if not isinstance(blocks, list):
+                raise TypeError("content must be a list")
+            msg = {"role": "assistant", "content": "\n".join(
+                b["text"] for b in blocks if isinstance(b, dict) and b.get("type") == "text")}
+            thinking = [b for b in blocks if isinstance(b, dict) and b.get("type") in ("thinking", "redacted_thinking")]
+            if thinking:
+                msg["_anthropic_content"] = copy.deepcopy(blocks)
+                pieces = [b["thinking"].strip() for b in thinking
+                          if isinstance(b.get("thinking"), str) and b["thinking"].strip()]
+                _store_reasoning(msg, "\n\n".join(pieces), "summary")
             calls = [{"id": b["id"], "type": "function", "function": {"name": b["name"], "arguments": json.dumps(b["input"])}}
-                     for b in data["content"] if b["type"] == "tool_use"]
+                     for b in blocks if isinstance(b, dict) and b.get("type") == "tool_use"]
         else:
             original = data["choices"][0]["message"]
             if not isinstance(original, dict):
                 raise TypeError("message must be an object")
-            msg = {"role": "assistant", "content": original.get("content") or ""}
+            visible, provider_content, text, kind = chat_reasoning(original)
+            msg = {"role": "assistant", "content": visible or ""}
+            if provider_content is not None:
+                msg["_provider_content"] = copy.deepcopy(provider_content)
+            if text and urlparse(profile["base_url"]).hostname == "generativelanguage.googleapis.com":
+                kind = "summary"
+            _store_reasoning(msg, text, kind)
+            if "extra_content" in original:
+                msg["extra_content"] = copy.deepcopy(original["extra_content"])
             for field in ("reasoning", "reasoning_content", "reasoning_details"):
                 if field in original:
                     msg[field] = copy.deepcopy(original[field])
