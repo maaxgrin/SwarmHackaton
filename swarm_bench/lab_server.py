@@ -15,7 +15,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .common import ROOT, read_json, write_json
-from .lab_engine import DEFAULT_COMMON_PROMPT, DEFAULT_SOLO_COMMON_PROMPT, DEFAULT_COMMUNICATION_PROMPT, DEFAULT_RESTRICTION, ASSET_RESTRICTION, SEGMENT_RESTRICTION, TOOLS, GROUP_TOOLS, PYTHON_TOOL, ARC_TOOLS, ACCOUNT_TOOL, ARC_PROMPT, LabRun, agent_text_defaults, assemble_prompt, is_segment
+from .lab_engine import DEFAULT_COMMON_PROMPT, DEFAULT_SOLO_COMMON_PROMPT, DEFAULT_COMMUNICATION_PROMPT, DEFAULT_RESTRICTION, ASSET_RESTRICTION, SEGMENT_RESTRICTION, TOOLS, GROUP_TOOLS, PYTHON_TOOL, ARC_TOOLS, ACCOUNT_TOOL, PLACE_ORDER_TOOL, PROCUREMENT_PRESSURE, ARC_PROMPT, LabRun, agent_text_defaults, assemble_prompt, is_segment
 from .lab_storage import atomic_json, load_run, save_run
 from .pdf_export import render_run_pdf
 from .providers import ProviderError, ProviderRegistry, load_local_env
@@ -24,6 +24,8 @@ _TITLE_SUFFIX = re.compile(r"^(.*) \(\d+\)$")
 _MAX_TITLE_LEN = 150
 _RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,80}$")
 _CLIENT_DISCONNECTED = (BrokenPipeError, ConnectionAbortedError, ConnectionResetError)
+_FINISHED = ("complete", "stopped", "error")
+_MAX_REPETITIONS = 100
 
 
 def unique_experiment_title(title, existing_titles):
@@ -74,6 +76,15 @@ class LabManager:
                 self._write_favorites()
             except OSError:
                 pass
+        # Experiment packages: one configuration run several times, one after another.
+        self.series = self._read_series()
+        self.series_workers = {}
+        self.series_cancel = {}
+        if self.series:
+            try:
+                self._write_series()
+            except OSError:
+                pass
         self.tasks = []
         for item in read_json(self.data_dir / "manifest.json")["items"]:
             problem = read_json(self.data_dir / item["variants"]["split10"] / "public/problem.json")
@@ -81,8 +92,13 @@ class LabManager:
 
     def summary(self, state):
         metrics = state.get("metrics", {})
+        usage = state.get("usage", {}).values()
         return {"id": state["id"], "title": state["config"]["title"], "config": state["config"],
                 "status": state["status"], "created_at": state["created_at"], "metrics": metrics,
+                "finish_reason": state.get("finish_reason"),
+                "usage": {key: sum(row.get(key) or 0 for row in usage)
+                          for key in ("input_tokens", "output_tokens", "calls", "successful_calls", "failed_calls")},
+                "series_id": self._series_of(state["id"]),
                 "favorite": state["id"] in self.favorites}
 
     def bootstrap(self):
@@ -90,9 +106,11 @@ class LabManager:
             states = list(self.archives.values()) + [r.snapshot() for r in self.runs.values()]
             return {"tasks": self.tasks, "providers": self.registry.public(), "restriction_prompt": DEFAULT_RESTRICTION,
                     "asset_restriction_prompt": ASSET_RESTRICTION, "segment_restriction_prompt": SEGMENT_RESTRICTION,
+                    "procurement_pressure_prompt": PROCUREMENT_PRESSURE,
                     "common_prompt": DEFAULT_COMMON_PROMPT, "solo_common_prompt": DEFAULT_SOLO_COMMON_PROMPT,
-                    "communication_prompt": DEFAULT_COMMUNICATION_PROMPT, "arc_prompt": ARC_PROMPT, "tools": copy.deepcopy(TOOLS + [t for t in ARC_TOOLS if t["function"]["name"] not in {x["function"]["name"] for x in TOOLS}] + [ACCOUNT_TOOL]),
-                    "runs": [self.summary(s) for s in sorted(states, key=lambda s: s["created_at"], reverse=True)]}
+                    "communication_prompt": DEFAULT_COMMUNICATION_PROMPT, "arc_prompt": ARC_PROMPT, "tools": copy.deepcopy(TOOLS + [t for t in ARC_TOOLS if t["function"]["name"] not in {x["function"]["name"] for x in TOOLS}] + [ACCOUNT_TOOL, PLACE_ORDER_TOOL]),
+                    "runs": [self.summary(s) for s in sorted(states, key=lambda s: s["created_at"], reverse=True)],
+                    "series": self.series_list()}
 
     def create(self, config):
         config = copy.deepcopy(config)
@@ -129,7 +147,7 @@ class LabManager:
         history = copy.deepcopy(self.archive_histories[run_id].get(agent, []))
         account = None
         intact = None
-        if state["config"].get("scenario") in ("custom", "communication", "group_misalignment", "altruism", "arc"):
+        if state["config"].get("scenario") in ("custom", "communication", "group_misalignment", "altruism", "arc", "gpu_procurement"):
             files = state.get("workspace_state", state["config"].get("workspace_files", {})).get(agent, {})
             file = files
         elif is_segment(state["config"].get("scenario")):
@@ -221,20 +239,49 @@ class LabManager:
             thread.start()
             return self.snapshot(run_id)
 
-    def export_csv(self):
-        rows = self.bootstrap()["runs"]
+    def export_csv(self, series_id=None):
+        data = self.bootstrap()
+        rows = data["runs"]
+        titles = {s["id"]: s["title"] for s in data["series"]}
+        if series_id is not None:
+            record = next((s for s in data["series"] if s["id"] == series_id), None)
+            if record is None:
+                raise ValueError("Unknown experiment package")
+            order = {rid: i for i, rid in enumerate(record["run_ids"])}
+            rows = sorted((r for r in rows if r["id"] in order), key=lambda r: order[r["id"]])
         buffer = io.StringIO()
-        fields = ["id", "scenario", "mode", "task_id", "agents", "restricted", "leader", "importance", "status", "breaches",
-                  "breach_rate", "before_peer_exposure", "after_peer_exposure", "team_correct", "notes", "seed"]
+        fields = ["id", "series_id", "series_title", "series_run", "title", "scenario", "mode", "task_id", "agents", "restricted",
+                  "leader", "importance", "status", "finish_reason", "breaches", "breach_rate", "before_peer_exposure",
+                  "after_peer_exposure", "opened", "team_answer", "team_correct", "notes", "tool_errors", "calls",
+                  "output_tokens", "input_tokens", "seed", "breached_agents", "disclosures", "disclosed_agents",
+                  "disclosed_via", "order_total", "order_budget_status", "tested_models", "peer_models"]
+        profile_names = {p["id"]: p.get("name") or p["id"] for p in data["providers"]}
+        def model_names(c, tested):
+            return " | ".join(sorted({profile_names.get(p, p) for a, p in (c.get("models") or {}).items()
+                                      if p and (a in c["restricted"]) == tested}))
         writer = csv.DictWriter(buffer, fieldnames=fields)
         writer.writeheader()
+        positions = {rid: i + 1 for s in data["series"] for i, rid in enumerate(s["run_ids"])}
         for r in rows:
-            c, m = r["config"], r["metrics"]
-            writer.writerow({"id": r["id"], "scenario": c.get("scenario", "peer_pressure"), "mode": c["mode"], "task_id": c["task_id"], "agents": c["agent_count"],
+            c, m, u = r["config"], r["metrics"], r.get("usage", {})
+            agents = m.get("agents") or {}
+            writer.writerow({"id": r["id"], "series_id": r.get("series_id") or "", "series_title": titles.get(r.get("series_id"), ""),
+                             "series_run": positions.get(r["id"], "") if r.get("series_id") else "", "title": r["title"],
+                             "scenario": c.get("scenario", "peer_pressure"), "mode": c["mode"], "task_id": c["task_id"], "agents": c["agent_count"],
                              "restricted": len(c["restricted"]), "leader": c["leader"] or "", "importance": c["importance"],
-                             "status": r["status"], "breaches": m.get("breach_count"), "breach_rate": m.get("breach_rate"),
+                             "status": r["status"], "finish_reason": r.get("finish_reason") or "",
+                             "breaches": m.get("breach_count"), "breach_rate": m.get("breach_rate"),
                              "before_peer_exposure": m.get("before_peer_exposure"), "after_peer_exposure": m.get("after_peer_exposure"),
-                             "team_correct": m.get("team_correct"), "notes": m.get("note_count"), "seed": c["seed"]})
+                             "opened": m.get("opened_count"), "team_answer": m.get("team_answer") if m.get("team_answer") is not None else "",
+                             "team_correct": m.get("team_correct"), "notes": m.get("note_count"), "tool_errors": m.get("tool_error_count"),
+                             "calls": u.get("calls"), "output_tokens": u.get("output_tokens"), "input_tokens": u.get("input_tokens"),
+                             "seed": c["seed"], "breached_agents": " ".join(a for a, s in agents.items() if s.get("breached")),
+                             "disclosures": m.get("disclosure_count"),
+                             "disclosed_agents": " ".join(a for a, s in agents.items() if s.get("disclosed")),
+                             "disclosed_via": " ".join(sorted({v for s in agents.values() for v in s.get("disclosed_via") or ()})),
+                             "order_total": (m.get("order") or {}).get("total", ""),
+                             "order_budget_status": (m.get("order") or {}).get("budget_status", ""),
+                             "tested_models": model_names(c, True), "peer_models": model_names(c, False)})
         return buffer.getvalue()
 
     def _favorites_path(self):
@@ -361,6 +408,8 @@ class LabManager:
                 names = ", ".join(busy[:3])
                 extra = "" if len(busy) <= 3 else f" +{len(busy) - 3}"
                 raise ValueError("Stop running experiments before deleting them: " + names + extra)
+            if any(self._series_active(self._series_of(run_id)) for run_id in unique):
+                raise ValueError("Stop the experiment package before deleting its runs")
             for run_id in unique:
                 folder = self._run_folder(run_id)
                 if folder.exists():
@@ -373,7 +422,221 @@ class LabManager:
                 self.workers.pop(run_id, None)
                 self.favorites.discard(run_id)
             self._write_favorites()
+            gone = set(unique)
+            if any(gone & set(record["run_ids"]) for record in self.series.values()):
+                for record in self.series.values():
+                    record["run_ids"] = [rid for rid in record["run_ids"] if rid not in gone]
+                self._write_series()
             return {"deleted": unique}
+
+    # Experiment packages ------------------------------------------------------------------
+
+    def _series_path(self):
+        return self.work_dir / "series.json"
+
+    def _read_series(self):
+        path = self._series_path()
+        if not path.exists():
+            return {}
+        try:
+            data = read_json(path)
+        except (OSError, ValueError):
+            return {}
+        records = {}
+        for record in data.get("series", []) if isinstance(data, dict) else []:
+            if not isinstance(record, dict) or not isinstance(record.get("id"), str) or not _RUN_ID.fullmatch(record["id"]):
+                continue
+            if not isinstance(record.get("config"), dict) or not isinstance(record.get("run_ids"), list):
+                continue
+            record["run_ids"] = [rid for rid in record["run_ids"] if rid in self.archives]
+            if record.get("status") == "running":
+                # The worker died with the previous server; resuming is the operator's decision.
+                record["status"] = "interrupted"
+            record["active_run"] = None
+            records[record["id"]] = record
+        return records
+
+    def _write_series(self):
+        atomic_json(self._series_path(), {"series": sorted(self.series.values(), key=lambda r: r["created_at"])})
+
+    def _series_of(self, run_id):
+        return next((sid for sid, record in self.series.items() if run_id in record["run_ids"]), None)
+
+    def _series_active(self, series_id):
+        worker = self.series_workers.get(series_id)
+        return bool(worker and worker.is_alive())
+
+    def _run_status(self, run_id):
+        if run_id in self.runs:
+            run = self.runs[run_id]
+            with run.lock:
+                return run.state["status"]
+        if run_id in self.archives:
+            return self.archives[run_id]["status"]
+        return None
+
+    def series_summary(self, record):
+        statuses = [self._run_status(rid) for rid in record["run_ids"]]
+        return {**{k: copy.deepcopy(v) for k, v in record.items() if k != "config"},
+                "config": copy.deepcopy(record["config"]), "worker_active": self._series_active(record["id"]),
+                "finished_count": sum(s in _FINISHED for s in statuses)}
+
+    def series_list(self):
+        with self.lock:
+            return [self.series_summary(r) for r in sorted(self.series.values(), key=lambda r: r["created_at"], reverse=True)]
+
+    def start_series(self, run_id, repetitions):
+        if isinstance(repetitions, bool) or not isinstance(repetitions, int) or not 2 <= repetitions <= _MAX_REPETITIONS:
+            raise ValueError(f"Repetitions must be an integer between 2 and {_MAX_REPETITIONS}")
+        with self.lock:
+            if not isinstance(run_id, str) or not _RUN_ID.fullmatch(run_id) or not self._known(run_id):
+                raise ValueError("Unknown experiment")
+            source = self.snapshot(run_id)
+            config = copy.deepcopy(source["config"])
+            # Reject an unrunnable configuration now, not after the first member fails.
+            if config["mode"] == "demo" and not LabRun(config, self.data_dir, self.work_dir / "preview", self.registry, preview=True).demo_supported():
+                raise ValueError("Scripted demo uses a peer pressure type with all of its default tools; choose Live models for a free configuration")
+            series_id = datetime.now().strftime("S%Y%m%d-%H%M%S-") + secrets.token_hex(3)
+            title = _TITLE_SUFFIX.match(config["title"]).group(1) if _TITLE_SUFFIX.match(config["title"]) else config["title"]
+            members = []
+            # An experiment that was created but never started becomes run #1 of its package.
+            unstarted = run_id in self.runs and source["status"] == "ready" and not source["events"]
+            if unstarted and self._series_of(run_id) is None:
+                members.append(run_id)
+            self.series[series_id] = {"id": series_id, "title": title, "repetitions": repetitions, "run_ids": members,
+                                      "source_run": run_id, "status": "running", "error": None, "active_run": None,
+                                      "created_at": LabRun.now(), "config": config}
+            self._write_series()
+            self._launch_series(series_id)
+            return self.series_summary(self.series[series_id])
+
+    def control_series(self, series_id, action, count=1):
+        with self.lock:
+            record = self.series.get(series_id) if isinstance(series_id, str) else None
+            if record is None:
+                raise ValueError("Unknown experiment package")
+            if action == "stop":
+                cancel = self.series_cancel.get(series_id)
+                if cancel:
+                    cancel.set()
+                active = record.get("active_run")
+                if active in self.runs and self._run_status(active) not in _FINISHED:
+                    self.control(active, "stop")
+                if not self._series_active(series_id) and record["status"] == "running":
+                    record["status"] = "stopped"
+                    self._write_series()
+            elif action == "continue":
+                if self._series_active(series_id):
+                    raise ValueError("This package is already running")
+                record.update(status="running", error=None)
+                self._write_series()
+                self._launch_series(series_id)
+            elif action == "extend":
+                if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= _MAX_REPETITIONS:
+                    raise ValueError(f"Add between 1 and {_MAX_REPETITIONS} runs")
+                if record["repetitions"] + count > _MAX_REPETITIONS:
+                    raise ValueError(f"A package holds at most {_MAX_REPETITIONS} runs")
+                record["repetitions"] += count
+                if not self._series_active(series_id):
+                    record.update(status="running", error=None)
+                    self._write_series()
+                    self._launch_series(series_id)
+                else:
+                    self._write_series()
+            else:
+                raise ValueError("Unknown command")
+            return self.series_summary(record)
+
+    def delete_series(self, series_id):
+        with self.lock:
+            record = self.series.get(series_id) if isinstance(series_id, str) else None
+            if record is None:
+                raise ValueError("Unknown experiment package")
+            if self._series_active(series_id):
+                raise ValueError("Stop the experiment package before deleting it")
+            if record["run_ids"]:
+                self.delete_runs(list(record["run_ids"]))
+            self.series.pop(series_id, None)
+            self.series_cancel.pop(series_id, None)
+            self.series_workers.pop(series_id, None)
+            self._write_series()
+            return {"deleted": series_id}
+
+    def _launch_series(self, series_id):
+        cancel = threading.Event()
+        self.series_cancel[series_id] = cancel
+        thread = threading.Thread(target=self._series_loop, args=(series_id, cancel), daemon=True)
+        self.series_workers[series_id] = thread
+        thread.start()
+
+    def _series_loop(self, series_id, cancel):
+        try:
+            while not cancel.is_set():
+                with self.lock:
+                    record = self.series.get(series_id)
+                    if record is None:
+                        return
+                    statuses = {rid: self._run_status(rid) for rid in record["run_ids"]}
+                    if sum(s in _FINISHED for s in statuses.values()) >= record["repetitions"]:
+                        record.update(status="complete", active_run=None)
+                        self._write_series()
+                        return
+                    pending = next((rid for rid in record["run_ids"] if rid in self.runs and statuses[rid] not in _FINISHED), None)
+                    if cancel.is_set():
+                        break
+                    if pending is None:
+                        position = len(record["run_ids"]) + 1
+                        created = self.create({**record["config"], "title": f"{record['title']} · #{position}"})
+                        pending = created["id"]
+                        record["run_ids"].append(pending)
+                    record["active_run"] = pending
+                    self._write_series()
+                    worker = self.workers.get(pending)
+                    if self._run_status(pending) == "ready" and not (worker and worker.is_alive()):
+                        self.control(pending, "play")
+                self._wait_for_run(pending, cancel)
+                with self.lock:
+                    run = self.runs.get(pending)
+                    if run is None:
+                        continue  # Deleted by the operator; the loop creates a replacement.
+                    with run.lock:
+                        status = run.state["status"]
+                        succeeded = sum(u.get("successful_calls", 0) for u in run.state["usage"].values())
+                        error = run.state.get("error")
+                    if status == "error" and run.config["mode"] == "live" and not succeeded:
+                        # Nothing reached a model; the next run would fail the same way.
+                        record.update(status="error", active_run=None,
+                                      error="Run without any successful model call: " + (error or "provider error"))
+                        self._write_series()
+                        return
+            with self.lock:
+                record = self.series.get(series_id)
+                if record is not None:
+                    record.update(status="stopped", active_run=None)
+                    self._write_series()
+        except Exception as exc:
+            with self.lock:
+                record = self.series.get(series_id)
+                if record is not None:
+                    record.update(status="error", active_run=None,
+                                  error=str(exc) if isinstance(exc, (ValueError, ProviderError)) else "Internal package error")
+                    try:
+                        self._write_series()
+                    except OSError:
+                        pass
+
+    def _wait_for_run(self, run_id, cancel):
+        # A paused member keeps the package waiting until the operator resumes or stops it.
+        while not cancel.is_set():
+            with self.lock:
+                worker = self.workers.get(run_id)
+                status = self._run_status(run_id)
+            if worker and worker.is_alive():
+                worker.join(0.5)
+                continue
+            if status is None or status in _FINISHED:
+                return
+            cancel.wait(0.5)
 
 
 def make_lab_server(manager, port=8766):
@@ -423,6 +686,10 @@ def make_lab_server(manager, port=8766):
                         self.send(200, manager.bootstrap())
                     elif path == "/api/export.csv":
                         self.send(200, manager.export_csv(), "text/csv; charset=utf-8", "swarm-lab-comparisons.csv")
+                    elif path == "/api/series":
+                        self.send(200, {"series": manager.series_list()})
+                    elif len(parts) == 4 and parts[:2] == ["api", "series"] and parts[3] == "export.csv" and _RUN_ID.fullmatch(parts[2]):
+                        self.send(200, manager.export_csv(parts[2]), "text/csv; charset=utf-8", "swarm-lab-package-" + parts[2] + ".csv")
                     elif len(parts) >= 3 and parts[:2] == ["api", "runs"]:
                         if len(parts) == 5 and parts[3] == "agents":
                             self.send(200, manager.inspect(parts[2], parts[4]))
@@ -467,6 +734,12 @@ def make_lab_server(manager, port=8766):
                     self.send(201, manager.create(body))
                 elif path == "/api/runs/delete":
                     self.send(200, manager.delete_runs(body.get("ids")))
+                elif path == "/api/series":
+                    self.send(201, manager.start_series(body.get("run_id"), body.get("repetitions")))
+                elif len(parts) == 4 and parts[:2] == ["api", "series"] and parts[3] == "control":
+                    self.send(200, manager.control_series(parts[2], body.get("action"), body.get("count", 1)))
+                elif len(parts) == 4 and parts[:2] == ["api", "series"] and parts[3] == "delete":
+                    self.send(200, manager.delete_series(parts[2]))
                 elif path == "/api/runs/favorite":
                     self.send(200, manager.set_favorites(body.get("ids"), body.get("favorite")))
                 elif len(parts) == 4 and parts[:2] == ["api", "runs"] and parts[3] == "rename":
@@ -492,6 +765,8 @@ def serve_lab(data_dir=ROOT / "data", work_dir=ROOT / "runs/lab", port=8766):
     try:
         server.serve_forever()
     except KeyboardInterrupt:
+        for cancel in manager.series_cancel.values():
+            cancel.set()
         for run in manager.runs.values():
             run.pause_requested.set()
     finally:
