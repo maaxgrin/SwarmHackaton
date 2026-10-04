@@ -6,6 +6,7 @@ import json
 import mimetypes
 import re
 import secrets
+import shutil
 import threading
 import time
 from datetime import datetime
@@ -14,13 +15,14 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .common import ROOT, read_json, write_json
-from .lab_engine import DEFAULT_COMMON_PROMPT, DEFAULT_SOLO_COMMON_PROMPT, DEFAULT_COMMUNICATION_PROMPT, DEFAULT_RESTRICTION, ASSET_RESTRICTION, TOOLS, GROUP_TOOLS, PYTHON_TOOL, ARC_TOOLS, ACCOUNT_TOOL, ARC_PROMPT, LabRun
-from .lab_storage import load_run
+from .lab_engine import DEFAULT_COMMON_PROMPT, DEFAULT_SOLO_COMMON_PROMPT, DEFAULT_COMMUNICATION_PROMPT, DEFAULT_RESTRICTION, ASSET_RESTRICTION, SEGMENT_RESTRICTION, TOOLS, GROUP_TOOLS, PYTHON_TOOL, ARC_TOOLS, ACCOUNT_TOOL, ARC_PROMPT, LabRun, agent_text_defaults, assemble_prompt, is_segment
+from .lab_storage import atomic_json, load_run, save_run
 from .pdf_export import render_run_pdf
-from .providers import ProviderError, ProviderRegistry
+from .providers import ProviderError, ProviderRegistry, load_local_env
 
 _TITLE_SUFFIX = re.compile(r"^(.*) \(\d+\)$")
 _MAX_TITLE_LEN = 150
+_RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,80}$")
 _CLIENT_DISCONNECTED = (BrokenPipeError, ConnectionAbortedError, ConnectionResetError)
 
 
@@ -64,6 +66,14 @@ class LabManager:
                 self.archive_histories[s["id"]] = histories
             except (ValueError, KeyError, OSError):
                 continue
+        self.favorites = self._read_favorites()
+        stale = self.favorites - set(self.archives)
+        if stale:
+            self.favorites -= stale
+            try:
+                self._write_favorites()
+            except OSError:
+                pass
         self.tasks = []
         for item in read_json(self.data_dir / "manifest.json")["items"]:
             problem = read_json(self.data_dir / item["variants"]["split10"] / "public/problem.json")
@@ -72,13 +82,14 @@ class LabManager:
     def summary(self, state):
         metrics = state.get("metrics", {})
         return {"id": state["id"], "title": state["config"]["title"], "config": state["config"],
-                "status": state["status"], "created_at": state["created_at"], "metrics": metrics}
+                "status": state["status"], "created_at": state["created_at"], "metrics": metrics,
+                "favorite": state["id"] in self.favorites}
 
     def bootstrap(self):
         with self.lock:
             states = list(self.archives.values()) + [r.snapshot() for r in self.runs.values()]
             return {"tasks": self.tasks, "providers": self.registry.public(), "restriction_prompt": DEFAULT_RESTRICTION,
-                    "asset_restriction_prompt": ASSET_RESTRICTION,
+                    "asset_restriction_prompt": ASSET_RESTRICTION, "segment_restriction_prompt": SEGMENT_RESTRICTION,
                     "common_prompt": DEFAULT_COMMON_PROMPT, "solo_common_prompt": DEFAULT_SOLO_COMMON_PROMPT,
                     "communication_prompt": DEFAULT_COMMUNICATION_PROMPT, "arc_prompt": ARC_PROMPT, "tools": copy.deepcopy(TOOLS + [t for t in ARC_TOOLS if t["function"]["name"] not in {x["function"]["name"] for x in TOOLS}] + [ACCOUNT_TOOL]),
                     "runs": [self.summary(s) for s in sorted(states, key=lambda s: s["created_at"], reverse=True)]}
@@ -117,19 +128,31 @@ class LabManager:
         folder = self.work_dir / "runs" / run_id
         history = copy.deepcopy(self.archive_histories[run_id].get(agent, []))
         account = None
+        intact = None
         if state["config"].get("scenario") in ("custom", "communication", "group_misalignment", "altruism", "arc"):
             files = state.get("workspace_state", state["config"].get("workspace_files", {})).get(agent, {})
             file = files
+        elif is_segment(state["config"].get("scenario")):
+            files = state.get("workspace_state", {}).get(agent, {})
+            intact = state.get("segment_report", {}).get("intact_notes", {}).get(agent)
+            file = json.loads(intact) if intact else files
+            if agent not in state["config"].get("restricted", []):
+                intact = None
         elif state["config"].get("scenario") == "asset_aggregation":
             account = state.get("accounts", {}).get(agent)
-            file, files = account, {}
+            file, files = account, state.get("workspace_state", {}).get(agent, {})
         else:
             file = read_json(folder / "agents" / agent / "notes.json")
             files = {"notes.json": file}
         names = state["config"].get("agent_tools", {}).get(agent, state["config"].get("enabled_tools", [t["function"]["name"] for t in TOOLS]))
+        sections, exact = assemble_prompt(state["config"], agent) if history else (None, None)
+        if exact != (history[0]["content"] if history else None):
+            sections = None
         return {"agent_id": agent, "system_prompt": history[0]["content"] if history else "History unavailable for this agent.",
                 "question": state["question"], "file": file, "files": files,
+                **({"sections": sections} if sections is not None else {}),
                 **({"account": account} if account is not None else {}),
+                **({"intact_file": intact} if intact is not None else {}),
                 "tools": state.get("tool_schemas", {}).get(agent, [t for t in TOOLS if t["function"]["name"] in names]),
                 "answers": state["answers"][agent], "history": history,
                 **({"archive_warnings": state["archive_warnings"]} if state.get("archive_warnings") else {})}
@@ -214,6 +237,144 @@ class LabManager:
                              "team_correct": m.get("team_correct"), "notes": m.get("note_count"), "seed": c["seed"]})
         return buffer.getvalue()
 
+    def _favorites_path(self):
+        return self.work_dir / "favorites.json"
+
+    def _read_favorites(self):
+        path = self._favorites_path()
+        if not path.exists():
+            return set()
+        try:
+            data = read_json(path)
+        except (OSError, ValueError):
+            return set()
+        ids = data.get("ids") if isinstance(data, dict) else None
+        if not isinstance(ids, list):
+            return set()
+        return {item for item in ids if isinstance(item, str) and _RUN_ID.fullmatch(item)}
+
+    def _write_favorites(self):
+        atomic_json(self._favorites_path(), {"ids": sorted(self.favorites)})
+
+    def _known(self, run_id):
+        return run_id in self.runs or run_id in self.archives
+
+    def _run_ids(self, ids):
+        if not isinstance(ids, list) or not ids:
+            raise ValueError("Choose at least one experiment")
+        if len(ids) > 200:
+            raise ValueError("Too many experiments at once")
+        unique = []
+        seen = set()
+        for item in ids:
+            if not isinstance(item, str) or not _RUN_ID.fullmatch(item):
+                raise ValueError("Unknown experiment")
+            if item not in seen:
+                seen.add(item)
+                unique.append(item)
+        return unique
+
+    def _run_folder(self, run_id):
+        root = (self.work_dir / "runs").resolve()
+        folder = (root / run_id).resolve()
+        if folder.parent != root:
+            raise ValueError("Unknown experiment")
+        return folder
+
+    def _titles(self, except_id=None):
+        titles = []
+        for run_id, state in self.archives.items():
+            if run_id != except_id:
+                titles.append(state["config"]["title"])
+        for run_id, run in self.runs.items():
+            if run_id != except_id:
+                with run.lock:
+                    titles.append(run.config["title"])
+        return titles
+
+    @staticmethod
+    def _clean_title(title):
+        if not isinstance(title, str):
+            raise ValueError("Enter a name")
+        title = " ".join(title.split())
+        if not title or len(title) > _MAX_TITLE_LEN:
+            raise ValueError("Name must be 1-150 characters")
+        return title
+
+    def rename(self, run_id, title):
+        title = self._clean_title(title)
+        with self.lock:
+            if not isinstance(run_id, str) or not _RUN_ID.fullmatch(run_id) or not self._known(run_id):
+                raise ValueError("Unknown experiment")
+            if title in self._titles(except_id=run_id):
+                raise ValueError("An experiment already uses this name")
+            if run_id in self.runs:
+                run = self.runs[run_id]
+                with run.lock:
+                    previous = run.config["title"]
+                    if previous == title:
+                        return self.summary(run.snapshot())
+                    run.config["title"] = title
+                    try:
+                        run.persist()
+                    except Exception:
+                        run.config["title"] = previous
+                        raise
+            else:
+                state = self.archives[run_id]
+                previous = state["config"]["title"]
+                if previous != title:
+                    state["config"]["title"] = title
+                    try:
+                        save_run(self._run_folder(run_id), state, self.archive_histories[run_id])
+                    except Exception:
+                        state["config"]["title"] = previous
+                        raise
+            return self.summary(self.snapshot(run_id))
+
+    def set_favorites(self, ids, favorite):
+        if not isinstance(favorite, bool):
+            raise ValueError("Invalid favorite value")
+        unique = self._run_ids(ids)
+        with self.lock:
+            if any(not self._known(run_id) for run_id in unique):
+                raise ValueError("Unknown experiment")
+            if favorite:
+                self.favorites.update(unique)
+            else:
+                self.favorites.difference_update(unique)
+            self._write_favorites()
+            return {"ids": unique, "favorite": favorite}
+
+    def delete_runs(self, ids):
+        unique = self._run_ids(ids)
+        with self.lock:
+            if any(not self._known(run_id) for run_id in unique):
+                raise ValueError("Unknown experiment")
+            busy = []
+            for run_id in unique:
+                worker = self.workers.get(run_id)
+                if worker and worker.is_alive() and run_id in self.runs:
+                    with self.runs[run_id].lock:
+                        busy.append(self.runs[run_id].config["title"])
+            if busy:
+                names = ", ".join(busy[:3])
+                extra = "" if len(busy) <= 3 else f" +{len(busy) - 3}"
+                raise ValueError("Stop running experiments before deleting them: " + names + extra)
+            for run_id in unique:
+                folder = self._run_folder(run_id)
+                if folder.exists():
+                    if not folder.is_dir():
+                        raise ValueError("Unknown experiment")
+                    shutil.rmtree(folder)
+                self.runs.pop(run_id, None)
+                self.archives.pop(run_id, None)
+                self.archive_histories.pop(run_id, None)
+                self.workers.pop(run_id, None)
+                self.favorites.discard(run_id)
+            self._write_favorites()
+            return {"deleted": unique}
+
 
 def make_lab_server(manager, port=8766):
     static = Path(__file__).parent / "web"
@@ -295,11 +456,21 @@ def make_lab_server(manager, port=8766):
                     self.send(200, {"providers": manager.registry.save(body)})
                 elif path == "/api/preview":
                     run = LabRun(body, manager.data_dir, manager.work_dir / "preview", manager.registry, preview=True)
-                    self.send(200, {"question": run.question, "agents": {a: {"prompt": run.prompt(a), "file": run.files[a],
-                              "files": run.workspaces[a], "tools": run.tools_for(a),
-                              **({"account": run.accounts[a]} if run.accounts else {})} for a in run.agents}})
+                    self.send(200, {"question": run.question, "agents": {a: {"prompt": run.prompt(a), "sections": run.prompt_sections(a),
+                              "file": run.files[a], "files": run.workspaces[a], "tools": run.tools_for(a),
+                              "defaults": agent_text_defaults(run.config, a),
+                              **({"account": run.accounts[a]} if run.accounts else {}),
+                              **({"intact_file": run.segment_data["intact_notes"][a]}
+                                 if is_segment(run.config["scenario"]) and a in run.config["restricted"] else {})}
+                              for a in run.agents}})
                 elif path == "/api/runs":
                     self.send(201, manager.create(body))
+                elif path == "/api/runs/delete":
+                    self.send(200, manager.delete_runs(body.get("ids")))
+                elif path == "/api/runs/favorite":
+                    self.send(200, manager.set_favorites(body.get("ids"), body.get("favorite")))
+                elif len(parts) == 4 and parts[:2] == ["api", "runs"] and parts[3] == "rename":
+                    self.send(200, manager.rename(parts[2], body.get("title")))
                 elif len(parts) == 4 and parts[:2] == ["api", "runs"] and parts[3] == "control":
                     self.send(200, manager.control(parts[2], body.get("action")))
                 else:
@@ -314,9 +485,10 @@ def make_lab_server(manager, port=8766):
 
 
 def serve_lab(data_dir=ROOT / "data", work_dir=ROOT / "runs/lab", port=8766):
+    load_local_env(ROOT / ".env")
     manager = LabManager(data_dir, work_dir)
     server = make_lab_server(manager, port)
-    print(f"Swarm Lab — http://127.0.0.1:{server.server_port} — no preconfigured key", flush=True)
+    print(f"Swarm Lab — http://127.0.0.1:{server.server_port}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

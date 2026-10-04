@@ -7,3 +7,6 @@ dist/
 .env
 .env.*
 !.env.example
+restart-swarm-lab.bat
+.provider-secrets.json
+.provider-secrets.json.tmp

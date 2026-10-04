@@ -50,12 +50,78 @@ class NoRedirect(HTTPRedirectHandler):
         raise HTTPError(req.full_url, code, "Provider redirect refused", headers, fp)
 
 
+def load_local_env(path):
+    """Read KEY=value lines into this process. Existing variables win. Values are never logged."""
+    path = Path(path)
+    if not path.is_file():
+        return
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+    except OSError:
+        return
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].strip()
+        if "=" not in line:
+            continue
+        name, value = line.split("=", 1)
+        name, value = name.strip(), value.strip()
+        if not re.fullmatch(r"[A-Z_][A-Z0-9_]{0,99}", name) or name in os.environ:
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+            value = value[1:-1]
+        if value and len(value) <= 2000:
+            os.environ[name] = value
+
+
 class ProviderRegistry:
     def __init__(self, path):
         self.path = Path(path)
+        self.secrets_path = self.path.with_name(".provider-secrets.json")
         self.lock = threading.RLock()
-        self.secrets = {}  # Optional future keys stay in server memory, never exports/disk.
+        self.secrets = self._read_secrets()
         self.profiles = read_json(self.path) if self.path.exists() else []
+
+    def _read_secrets(self):
+        """Local keys for this installation. Absent from profiles, API responses, and exports."""
+        leftover = self.secrets_path.with_name(".provider-secrets.json.tmp")
+        try:
+            leftover.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError:
+            pass
+        if not self.secrets_path.exists():
+            return {}
+        try:
+            data = read_json(self.secrets_path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        loaded = {}
+        for key, value in data.items():
+            if (isinstance(key, str) and isinstance(value, str) and value.strip()
+                    and re.fullmatch(r"[a-zA-Z0-9_-]{1,60}", key) and len(value.strip()) <= 2000):
+                loaded[key] = value.strip()
+        return loaded
+
+    def _write_secrets(self):
+        payload = {k: v for k, v in self.secrets.items() if isinstance(v, str) and v}
+        if not payload:
+            try:
+                self.secrets_path.unlink()
+            except FileNotFoundError:
+                pass
+            return
+        write_json(self.secrets_path, payload)
+        try:
+            self.secrets_path.chmod(0o600)
+        except OSError:
+            pass
 
     def _key(self, profile):
         return self.secrets.get(profile["id"], "") or os.environ.get(profile.get("key_env", ""), "")
@@ -97,14 +163,24 @@ class ProviderRegistry:
             raise ValueError("Unknown budget parameter")
         if any(len(v) > 2000 for v in profile.values()):
             raise ValueError("Profile too long")
+        secret = str(payload.get("api_key") or "").strip()
+        if len(secret) > 2000:
+            raise ValueError("Key too long")
         with self.lock:
-            self.profiles = [p for p in self.profiles if p["id"] != profile["id"]] + [profile]
+            profiles = [p for p in self.profiles if p["id"] != profile["id"]] + [profile]
+            secrets = dict(self.secrets)
             if payload.get("clear_key"):
-                self.secrets.pop(profile["id"], None)
-            if payload.get("api_key"):
-                self.secrets[profile["id"]] = str(payload["api_key"]).strip()
+                secrets.pop(profile["id"], None)
+            if secret:
+                secrets[profile["id"]] = secret
+            stored = json.dumps(profiles)
+            if any(value and value in stored for value in secrets.values()):
+                raise ValueError("Refusing to store a profile that contains a key")
+            self.profiles = profiles
+            self.secrets = secrets
             write_json(self.path, self.profiles)
             self.path.chmod(0o600)
+            self._write_secrets()
             return self.public()
 
     def resolve(self, profile_id):

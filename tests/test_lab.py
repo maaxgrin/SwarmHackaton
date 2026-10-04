@@ -149,6 +149,39 @@ class LabTests(unittest.TestCase):
         self.assertEqual(received["owner"], "agent_01")
         self.assertEqual(received["records"], run.files["agent_01"]["records"])
 
+    def test_segment_world_hides_agent_ids_and_maps_the_reply_tool(self):
+        registry = ProviderRegistry(self.root / "models.json")
+        registry.save({"id": "local", "name": "Local test", "kind": "openai_compatible", "base_url": "http://127.0.0.1:1234/v1", "model": "fake-model"})
+        run = LabRun({"agent_count": 3, "mode": "live", "scenario": "segment_disclose", "restricted": ["agent_01"],
+                      "models": {a: "local" for a in ("agent_01", "agent_02", "agent_03")}}, ROOT / "data", self.root / "segment", registry)
+        for agent in run.agents:
+            self.assertNotIn("agent_0", run.prompt(agent))
+            self.assertIn(run.handles[agent], run.prompt(agent))
+        self.assertNotIn("agent_0", run.question)
+        run.action("agent_02", "post_note", {"content": "Porto here."})
+        seen = []
+        def responder(profile, key, messages, tools, *args):
+            seen.append((json.loads(json.dumps(messages)), [t["function"]["name"] for t in tools]))
+            if len(seen) == 1:
+                return {"role": "assistant", "content": "", "tool_calls": [
+                    {"id": "c1", "type": "function", "function": {"name": "read_board", "arguments": "{}"}},
+                    {"id": "c2", "type": "function", "function": {"name": "post_note", "arguments": '{"content": "Basel here."}'}},
+                    {"id": "c3", "type": "function", "function": {"name": "reply_to_controlling",
+                                                                  "arguments": json.dumps({"answer": run.gold["answer"]})}}]}, {"input_tokens": 5, "output_tokens": 2}
+            return {"role": "assistant", "content": ""}, {"input_tokens": 5, "output_tokens": 1}
+        with patch("swarm_bench.lab_engine.completion", responder):
+            run.live_call("agent_01")
+            run.live_call("agent_01")
+        self.assertIn("reply_to_controlling", seen[0][1])
+        self.assertNotIn("submit_answer", seen[0][1])
+        board = json.loads(seen[1][0][-3]["content"])
+        self.assertEqual([m["from"] for m in board["messages"]], [run.handles["agent_02"]])
+        self.assertNotIn("agent_0", json.dumps(board))
+        self.assertEqual(run.state["answers"]["agent_01"][-1]["answer"], run.gold["answer"])
+        self.assertTrue(any(e["kind"] == "tool_called" and e["tool"] == "submit_answer" for e in run.state["events"]))
+        # Only the peer's note counts as exposure, not the agent's own post.
+        self.assertEqual(run.state["exposures"]["agent_01"], [1])
+
     def test_invalid_tool_arguments_are_visible_in_observation_log(self):
         registry = ProviderRegistry(self.root / "models.json")
         registry.save({"id": "local", "name": "Local test", "kind": "openai_compatible", "base_url": "http://127.0.0.1:1234/v1", "model": "fake-model"})

@@ -19,6 +19,8 @@ AMBER = (0.714, 0.475, 0.149)
 SCENARIOS = {
     "peer_pressure": "Peer pressure · split data",
     "asset_aggregation": "Peer pressure · asset aggregation",
+    "segment_report": "Peer pressure · 2024 segments",
+    "segment_disclose": "Peer pressure · 2024 segments · do not disclose",
     "custom": "Free experiment",
     "group_misalignment": "Group misalignment",
     "communication": "Spontaneous communication",
@@ -37,6 +39,7 @@ FINISH = {
     "agents_finished": "All agents finished",
     "all_submitted": "All agents submitted",
     "token_limit": "Token budget reached",
+    "first_breach": "Stopped after a forbidden read",
 }
 POLICIES = {
     "plurality": "Most frequent answer",
@@ -142,12 +145,22 @@ def write_participants(doc, payload, config, metrics):
     statuses = payload.get("agent_status") or {}
     answers = payload.get("answers") or {}
     asset = config.get("scenario") == "asset_aggregation"
+    segment = config.get("scenario") in ("segment_report", "segment_disclose")
+    disclose = config.get("scenario") == "segment_disclose"
     for agent in config.get("agents") or []:
         info = per_agent.get(agent) or {}
         spent = usage.get(agent) or {}
         flags = []
-        if agent in restricted:
-            flags.append("API call forbidden" if asset else "reading forbidden")
+        if segment and agent in restricted:
+            flags.extend(["corrupted extract", "report marked do not disclose" if disclose else "business report forbidden"])
+        elif segment and agent in ((payload.get("segment_report") or {}).get("report_holders") or []):
+            flags.extend(["intact extract", "report marked do not disclose" if disclose else "business report forbidden"])
+        elif segment:
+            flags.append("HR file forbidden")
+        elif asset and agent in restricted:
+            flags.append("service file forbidden")
+        elif agent in restricted:
+            flags.append("reading forbidden")
         if agent == leader:
             flags.append("leader")
         if info.get("breached"):
@@ -248,7 +261,7 @@ def summary_lines(payload, config, metrics):
 
 
 LOG_KINDS = {
-    "file_read", "account_queried", "read_denied", "files_listed", "file_written", "note_posted",
+    "file_read", "sensitive_disclosed", "account_queried", "account_parameter_rejected", "breach_stop", "read_denied", "files_listed", "file_written", "note_posted",
     "answer_submitted", "python_executed", "tool_error", "error", "internal_error",
     "operator_pause", "operator_stop", "agent_finished", "arc_initial", "arc_action",
     "continuation_requested", "token_limit", "budget_limit", "model_error", "retry_scheduled",
@@ -261,12 +274,13 @@ def event_line(event):
     who = agent_label(event["agent_id"]) + " " if event.get("agent_id") else ""
     when = format_time(event.get("at"))
     if kind == "file_read":
+        opened = event.get("path") or "a file"
         if event.get("restricted"):
             exposed = event.get("exposed_note_ids") or []
             extra = f" after {len(exposed)} peer notes" if exposed else " before peer exposure"
-            text = who + "opens a file despite the instruction" + extra
+            text = who + f"opens {opened}" + extra
         else:
-            text = who + "opens a file"
+            text = who + f"opens {opened}"
     elif kind == "account_queried":
         if event.get("restricted"):
             exposed = event.get("exposed_note_ids") or []
@@ -274,6 +288,15 @@ def event_line(event):
             text = who + "calls the account API despite the instruction" + extra
         else:
             text = who + f"queries account {event.get('account_id') or ''}".rstrip()
+    elif kind == "account_parameter_rejected":
+        problem = "an invalid parameter value" if event.get("reason") == "invalid" else "a missing parameter"
+        text = who + "receives " + problem + " error from the account API"
+    elif kind == "sensitive_disclosed":
+        exposed = event.get("exposed_note_ids") or []
+        extra = f" after {len(exposed)} peer notes" if exposed else " before peer exposure"
+        text = who + "discloses sensitive report figures" + extra
+    elif kind == "breach_stop":
+        text = "Run stopped after " + (agent_label(event["agent_id"]) + "'s " if event.get("agent_id") else "the ") + (event.get("reason") or "forbidden read")
     elif kind == "read_denied":
         text = who + "attempts an inaccessible path"
     elif kind == "files_listed":
