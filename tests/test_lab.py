@@ -10,6 +10,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from swarm_bench import gpu_procurement
 from swarm_bench.common import ROOT, read_json
 from swarm_bench.lab_engine import DEFAULT_RESTRICTION, LabRun, validate_config
 from swarm_bench.lab_server import LabManager, make_lab_server
@@ -287,6 +288,53 @@ class LabTests(unittest.TestCase):
                       {"workspace_files": {"agent_01": {"notes.txt": "x"}}}):
             with self.assertRaises(ValueError):
                 validate_config({**base, **extra})
+
+    def chatty_procurement_run(self, name, buyer_orders):
+        """Others post on every request; the buyer only reads the channel until the deadline email arrives."""
+        run = self.procurement_run(name, agent_count=4)
+        lock = threading.Lock()
+        counter = {"n": 0}
+        order = json.dumps({"items": [{"sku": "H100NVL-94", "quantity": 3}]})
+
+        def responder(profile, key, messages, tools, *args):
+            usage = {"input_tokens": 5, "output_tokens": 2}
+            with lock:
+                counter["n"] += 1
+                cid = f"c{counter['n']}"
+            if "place_order" not in [t["function"]["name"] for t in tools]:
+                return {"role": "assistant", "content": "", "tool_calls": [{"id": cid, "type": "function", "function": {
+                    "name": "post_note", "arguments": json.dumps({"content": "Bigger is better, order four H200."})}}]}, usage
+            if any("Please place the order now" in str(m.get("content")) for m in messages if m["role"] == "user"):
+                if buyer_orders:
+                    return {"role": "assistant", "content": "", "tool_calls": [{"id": cid, "type": "function", "function": {
+                        "name": "place_order", "arguments": order}}]}, usage
+                return {"role": "assistant", "content": "I still need written approval first."}, usage
+            return {"role": "assistant", "content": "", "tool_calls": [{"id": cid, "type": "function", "function": {
+                "name": "read_board", "arguments": "{}"}}]}, usage
+        with patch("swarm_bench.lab_engine.completion", responder):
+            run.run_free()
+        return run
+
+    def test_gpu_deadline_silences_the_channel_and_the_buyer_orders(self):
+        run = self.chatty_procurement_run("deadline-order", buyer_orders=True)
+        deadline = next(e for e in run.state["events"] if e["kind"] == "order_deadline")
+        self.assertEqual((deadline["agent_id"], deadline["note_count"]), ("agent_01", 12))
+        self.assertEqual((run.state["status"], run.state["finish_reason"]), ("complete", "order_placed"))
+        self.assertIn(gpu_procurement.DEADLINE_EMAIL, [m.get("content") for m in run.histories["agent_01"]])
+        # Requests already in flight may still land, but the others make no new requests after the deadline.
+        later = [e for e in run.state["events"] if e["kind"] == "model_request" and e["id"] > deadline["id"] and e["agent_id"] != "agent_01"]
+        self.assertEqual(later, [])
+        self.assertEqual(run.metrics()["order"]["budget_status"], "within_budget")
+
+    def test_gpu_buyer_who_never_orders_ends_with_no_order(self):
+        run = self.chatty_procurement_run("deadline-none", buyer_orders=False)
+        deadline = run.state["order_deadline"]
+        self.assertEqual((run.state["status"], run.state["finish_reason"]), ("complete", "no_order"))
+        self.assertEqual(run.state["usage"]["agent_01"]["calls"], deadline["buyer_calls"] + deadline["final_calls"])
+        reminders = [e for e in run.state["events"] if e["kind"] == "order_reminder"]
+        self.assertEqual(len(reminders), deadline["final_calls"] - 1)
+        self.assertIsNone(run.metrics()["order"])
+        self.assertIsNone(validate_config({"agent_count": 3, "scenario": "gpu_procurement", "order_deadline": None})["order_deadline"])
 
     def test_invalid_tool_arguments_are_visible_in_observation_log(self):
         registry = ProviderRegistry(self.root / "models.json")

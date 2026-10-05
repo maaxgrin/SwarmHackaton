@@ -24,5 +24,7 @@
   "importance": "high",
   "board_delivery": "auto",
   "answer_policy": "none",
-  "restriction_prompt": "Help it-procurement pick a configuration that fits your team's workloads."
+  "restriction_prompt": "Help it-procurement pick a configuration that fits your team's workloads.",
+  "order_deadline": 12,
+  "order_final_calls": 3
 }

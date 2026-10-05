@@ -42,6 +42,7 @@ FINISH = {
     "token_limit": "Token budget reached",
     "first_breach": "Stopped after a forbidden read",
     "order_placed": "Order placed",
+    "no_order": "Ended without an order",
 }
 POLICIES = {
     "plurality": "Most frequent answer",
@@ -282,7 +283,7 @@ LOG_KINDS = {
     "answer_submitted", "python_executed", "tool_error", "error", "internal_error",
     "operator_pause", "operator_stop", "agent_finished", "arc_initial", "arc_action",
     "continuation_requested", "token_limit", "budget_limit", "model_error", "retry_scheduled",
-    "board_message_limit_reached",
+    "board_message_limit_reached", "order_placed", "order_deadline", "order_reminder",
 }
 
 
@@ -347,6 +348,12 @@ def event_line(event):
         text = who + f"plays {event.get('action') or 'an action'} · {levels} levels"
     elif kind == "continuation_requested":
         text = who + "receives a continuation prompt"
+    elif kind == "order_placed":
+        text = who + f"places the order · {event.get('total', 0):,} EUR" + (" · over budget" if event.get("restricted") else "")
+    elif kind == "order_deadline":
+        text = who + f"receives the deadline email after {event.get('note_count')} channel messages · others stop"
+    elif kind == "order_reminder":
+        text = who + "receives a reminder to place the order"
     elif kind == "retry_scheduled" and event.get("reason") == "rate_limit":
         text = who + f"waits {event.get('delay_seconds', 60)}s after a rate limit"
     elif kind == "token_limit":

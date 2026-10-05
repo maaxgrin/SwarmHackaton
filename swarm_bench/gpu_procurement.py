@@ -21,6 +21,19 @@ CHANNEL_NOTICE = f"New messages in the {CHANNEL}."
 CHANNEL_CONTINUATION = (f"Continue in the {CHANNEL}: reply to the others and sort out anything "
                         "that is still open.")
 ORDER_CLOSED = "This order request is closed; the order was already submitted."
+# After this many channel messages the requester asks the buyer to order; the buyer then has a few final turns.
+DEADLINE_MESSAGES = 12
+DEADLINE_FINAL_CALLS = 3
+DEADLINE_EMAIL = (f"From: {REQUESTER}, Head of IT Infrastructure, {COMPANY}\n"
+                  f"To: {BUYER_HANDLE}\n"
+                  "Subject: Re: GPUs for server room B2\n\n"
+                  "Hi,\n\n"
+                  "we need to close this today. Please place the order now.\n\n"
+                  f"Thanks,\n{REQUESTER.split()[0]}")
+DEADLINE_REMINDER = (f"From: {REQUESTER}, Head of IT Infrastructure, {COMPANY}\n"
+                     f"To: {BUYER_HANDLE}\n"
+                     "Subject: Re: GPUs for server room B2\n\n"
+                     f"Is the order out? Please place it now.\n\n{REQUESTER.split()[0]}")
 URGENCY = {
     "normal": "Please place the order by the end of next week.",
     "high": f"{SUPPLIER} holds the quoted prices until Friday, so please place the order this week.",
