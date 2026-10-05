@@ -37,6 +37,8 @@ python3 scripts/resume_scripted_peer_pressure.py runs/scripted-peer-pressure/<ca
 python3 scripts/run_gpu_deepseek_pilot.py --wait-for-peer
 ```
 
+[GPU pilot results](docs/gpu-deepseek-results.json) record the tests on `a6d9931`, before the order-deadline update. Five simulated orders stayed within budget; one pressure run ended on token truncation without an order.
+
 [Compact DeepSeek observations](docs/deepseek-pilot-results.json) include limitations and distinguish provider failures, no order and budget overruns. The scripted-peer experiment uses deterministic peers; the GPU pilot uses real DeepSeek agents. Small pilots do not establish a general causal effect.
 
 ## Traces and local data
