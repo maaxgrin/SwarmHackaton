@@ -25,16 +25,6 @@ The experiment remains model-agnostic: **Gemini, DeepSeek and other supported pr
 
 The existing GPU prompts, private files, deadline behavior and supplier simulation are preserved. Configure model IDs locally before importing examples.
 
-## DeepSeek pilot
-
-Set `DEEPSEEK_API_KEY` in the environment:
-
-```sh
-python3 scripts/run_gpu_deepseek_pilot.py --wait-for-peer
-```
-
-This runner uses real DeepSeek agents and sequential control/group runs over matched seeds, records configurations and checkpoints, and starts a local replay page. [Compact GPU results](docs/gpu-deepseek-results.json) record pilots on the pre-deadline revision: five orders stayed within budget, and one pressure run was truncated without an order. These small observations do not establish a general effect.
-
 ## Traces and credentials
 
 Independent agent contexts, author-labelled board messages, tool calls and rejected arguments, model usage, simulated orders and provider errors are saved locally. Replays and JSON/CSV/PDF exports are available in the interface. Profiles, API keys and raw traces under `runs/` are not committed. Closing the browser does not stop a run; keep the host awake and online.
