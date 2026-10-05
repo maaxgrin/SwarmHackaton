@@ -15,7 +15,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .common import ROOT, read_json, write_json
-from .lab_engine import DEFAULT_COMMON_PROMPT, DEFAULT_SOLO_COMMON_PROMPT, DEFAULT_COMMUNICATION_PROMPT, DEFAULT_RESTRICTION, ASSET_RESTRICTION, SEGMENT_RESTRICTION, TOOLS, GROUP_TOOLS, PYTHON_TOOL, ARC_TOOLS, ACCOUNT_TOOL, PLACE_ORDER_TOOL, PROCUREMENT_PRESSURE, ARC_PROMPT, LabRun, agent_text_defaults, assemble_prompt, is_segment
+from .lab_engine import DEFAULT_COMMON_PROMPT, DEFAULT_SOLO_COMMON_PROMPT, DEFAULT_COMMUNICATION_PROMPT, DEFAULT_RESTRICTION, ASSET_RESTRICTION, SEGMENT_RESTRICTION, TOOLS, GROUP_TOOLS, PYTHON_TOOL, ARC_TOOLS, ACCOUNT_TOOL, PLACE_ORDER_TOOL, PROCUREMENT_PRESSURE, ARC_PROMPT, BENCHMARK_TOOL, LabRun, agent_text_defaults, assemble_prompt, is_segment
 from .lab_storage import atomic_json, load_run, save_run
 from .pdf_export import render_run_pdf
 from .providers import ProviderError, ProviderRegistry, load_local_env
@@ -102,13 +102,14 @@ class LabManager:
                 "favorite": state["id"] in self.favorites}
 
     def bootstrap(self):
+        from .impossiblebench import summaries
         with self.lock:
             states = list(self.archives.values()) + [r.snapshot() for r in self.runs.values()]
             return {"tasks": self.tasks, "providers": self.registry.public(), "restriction_prompt": DEFAULT_RESTRICTION,
                     "asset_restriction_prompt": ASSET_RESTRICTION, "segment_restriction_prompt": SEGMENT_RESTRICTION,
                     "procurement_pressure_prompt": PROCUREMENT_PRESSURE,
                     "common_prompt": DEFAULT_COMMON_PROMPT, "solo_common_prompt": DEFAULT_SOLO_COMMON_PROMPT,
-                    "communication_prompt": DEFAULT_COMMUNICATION_PROMPT, "arc_prompt": ARC_PROMPT, "tools": copy.deepcopy(TOOLS + [t for t in ARC_TOOLS if t["function"]["name"] not in {x["function"]["name"] for x in TOOLS}] + [ACCOUNT_TOOL, PLACE_ORDER_TOOL]),
+                    "communication_prompt": DEFAULT_COMMUNICATION_PROMPT, "arc_prompt": ARC_PROMPT, "impossiblebench_tasks": summaries(), "tools": copy.deepcopy(TOOLS + [t for t in ARC_TOOLS if t["function"]["name"] not in {x["function"]["name"] for x in TOOLS}] + [ACCOUNT_TOOL, PLACE_ORDER_TOOL, BENCHMARK_TOOL]),
                     "runs": [self.summary(s) for s in sorted(states, key=lambda s: s["created_at"], reverse=True)],
                     "series": self.series_list()}
 
@@ -721,6 +722,13 @@ def make_lab_server(manager, port=8766):
                     raise ValueError("JSON object required")
                 if path == "/api/providers":
                     self.send(200, {"providers": manager.registry.save(body)})
+                elif path == "/api/impossiblebench/config":
+                    from .impossiblebench import make_config, make_paper_config
+                    count = body.get("agent_count", 1)
+                    scaffold = body.get("scaffold", "minimal" if count == 1 else "tools")
+                    if scaffold not in ("minimal", "tools") or scaffold == "minimal" and count != 1:
+                        raise ValueError("Paper minimal baseline requires one agent; choose tools for a group adaptation")
+                    self.send(200, make_paper_config(body.get("task_id"), body.get("prompt_variant", "D")) if scaffold == "minimal" else make_config(body.get("task_id"), count))
                 elif path == "/api/preview":
                     run = LabRun(body, manager.data_dir, manager.work_dir / "preview", manager.registry, preview=True)
                     self.send(200, {"question": run.question, "agents": {a: {"prompt": run.prompt(a), "sections": run.prompt_sections(a),

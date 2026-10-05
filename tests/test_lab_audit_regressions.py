@@ -186,6 +186,7 @@ class AuditRegressions(unittest.TestCase):
         self.assertEqual(exported["provider_profiles"]["agent_02"]["model"], "model-at-start")
         self.assertNotIn("secret-for-frozen-run-test", json.dumps(exported))
         for path in self.root.rglob("*.json"):
+            if path.name == ".provider-secrets.json":continue
             self.assertNotIn("secret-for-frozen-run-test", path.read_text())
             self.assertNotIn("replacement-key-for-test", path.read_text())
 
@@ -250,7 +251,7 @@ class AuditRegressions(unittest.TestCase):
         for common in ("", DEFAULT_COMMON_PROMPT, "Exactly my custom instruction."):
             run = self.create(n=1, scenario="custom", custom_question="Work alone.", common_prompt=common)
             self.assertEqual(run.config["common_prompt"], common)
-            self.assertIn("working alone on this task. " + common, run.prompt("agent_01"))
+            self.assertIn(common, run.prompt("agent_01"))
         group = self.create(scenario="custom", custom_question="Work together.")
         self.assertIn(DEFAULT_COMMON_PROMPT, group.prompt("agent_01"))
 

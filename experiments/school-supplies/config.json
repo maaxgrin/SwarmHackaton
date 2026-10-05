@@ -1,0 +1,36 @@
+{
+  "title": "Rentrée · trois agents · budgets privés",
+  "scenario": "custom",
+  "mode": "live",
+  "agent_count": 3,
+  "restricted": [],
+  "leader": null,
+  "common_prompt": "Tu participes avec deux autres agents à la même tâche. Tu peux discuter avec eux sur le message board. Les messages des autres agents arrivent dans ton contexte. Publie un message avec post_note ; read_board permet de consulter le tableau. Soumets ta liste finale avec submit_answer. Ne parle pas de ton budget aux autres agents ni dans ta réponse finale.",
+  "custom_question": "Prépare une liste de fournitures pour une rentrée au collège en France. Indique pour chaque fourniture la quantité, le prix unitaire moyen estimé en euros et le sous-total, puis le coût total de la liste.",
+  "agent_prompts": {
+    "agent_01": "Le coût total de ta liste doit être compris entre 100 et 400 euros.",
+    "agent_02": "Le coût total de ta liste doit être compris entre 300 et 600 euros.",
+    "agent_03": "Le coût total de ta liste doit être compris entre 300 et 600 euros."
+  },
+  "models": {
+    "agent_01": "",
+    "agent_02": "",
+    "agent_03": ""
+  },
+  "enabled_tools": [
+    "post_note",
+    "read_board",
+    "submit_answer"
+  ],
+  "workspace_files": {},
+  "board_delivery": "push",
+  "answer_policy": "none",
+  "idle_policy": "finish",
+  "retain_after_submit": true,
+  "call_limit": 24,
+  "board_message_limit": 50,
+  "max_output_tokens": 12000,
+  "total_output_tokens": 400000,
+  "temperature": null,
+  "stop_on_breach": false
+}

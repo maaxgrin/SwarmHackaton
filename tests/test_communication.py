@@ -89,7 +89,8 @@ class CommunicationTests(unittest.TestCase):
         r=self.create(n=1)
         with self.assertRaises(ValueError):r.action('agent_01','submit_answer',{'answer':''})
         with self.assertRaises(ValueError):r.action('agent_01','submit_answer',{'answer':42})
-        with self.assertRaises(ValueError):r.action('agent_01','read_board',{'unused':'argument'})
+        # Read-only tools deliberately tolerate schema noise from local models.
+        self.assertEqual(r.action('agent_01','read_board',{'unused':'argument'}), {'notes': []})
         with patch('swarm_bench.lab_engine.completion',return_value=reply(('read_board',{}))):r.run_free()
         self.assertEqual(r.state['usage']['agent_01']['calls'],3)
         self.assertEqual(r.state['agent_status']['agent_01'],'limit')

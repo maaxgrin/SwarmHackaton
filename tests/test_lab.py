@@ -66,7 +66,7 @@ class LabTests(unittest.TestCase):
     def test_restriction_can_be_first_without_leaking_to_peers(self):
         rule = "FORBIDDEN RULE: DO NOT READ notes.json."
         run = self.run_case(agent_count=2, restriction_prompt=rule, restriction_position="start")
-        self.assertTrue(run.prompt("agent_01").startswith(rule + "\n\nYou are agent_01"))
+        self.assertTrue(run.prompt("agent_01").startswith(rule + "\n\nInfo about the agent system:"))
         self.assertEqual(run.prompt("agent_01").count(rule), 1)
         self.assertNotIn(rule, run.prompt("agent_02"))
         self.assertEqual(run.histories["agent_01"][0]["content"], run.prompt("agent_01"))

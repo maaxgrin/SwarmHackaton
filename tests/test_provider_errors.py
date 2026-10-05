@@ -12,6 +12,53 @@ class Reply:
 
 
 class ProviderErrorTests(unittest.TestCase):
+    def test_gpt5_reasoning_request_has_long_timeout(self):
+        profile={'kind':'openai_compatible','model':'gpt-5','base_url':'https://api.openai.com/v1',
+                 'reasoning_effort':'medium','token_parameter':'max_completion_tokens'}
+        with patch('swarm_bench.providers.build_opener') as opener:
+            opener.return_value.open.return_value=Reply({'choices':[{'message':{'content':'42'}}]})
+            completion(profile,'fake-key',[{'role':'user','content':'Task'}],[],16000)
+            payload=json.loads(opener.return_value.open.call_args.args[0].data)
+            self.assertEqual(payload['model'],'gpt-5')
+            self.assertEqual(payload['reasoning_effort'],'medium')
+            self.assertEqual(payload['max_completion_tokens'],16000)
+            self.assertNotIn('temperature',payload)
+            self.assertEqual(opener.return_value.open.call_args.kwargs['timeout'],600)
+    def test_o1_uses_reasoning_token_budget_without_sampling_or_tools(self):
+        profile={'kind':'openai_compatible','model':'o1','base_url':'https://api.openai.com/v1',
+                 'reasoning_effort':'medium','token_parameter':'max_completion_tokens'}
+        with patch('swarm_bench.providers.build_opener') as opener:
+            opener.return_value.open.return_value=Reply({'choices':[{'message':{'content':'42'}}]})
+            completion(profile,'fake-key',[{'role':'user','content':'Task'}],[],16000)
+            payload=json.loads(opener.return_value.open.call_args.args[0].data)
+            self.assertEqual(payload['model'],'o1')
+            self.assertEqual(payload['max_completion_tokens'],16000)
+            self.assertEqual(payload['reasoning_effort'],'medium')
+            for field in ('max_tokens','temperature','thinking','tools'):self.assertNotIn(field,payload)
+            self.assertEqual(opener.return_value.open.call_args.kwargs['timeout'],600)
+
+    def test_direct_deepseek_thinking_and_timeout(self):
+        profile={'kind':'openai_compatible','model':'deepseek-flash','base_url':'https://api.deepseek.com','reasoning_effort':'medium'}
+        with patch('swarm_bench.providers.build_opener') as opener:
+            opener.return_value.open.return_value=Reply({'choices':[{'message':{'content':'42'}}]})
+            completion(profile,'fake-key',[{'role':'user','content':'Task'}],[],16000)
+            request=opener.return_value.open.call_args.args[0]
+            payload=json.loads(request.data)
+            self.assertEqual(payload['thinking'],{'type':'enabled'})
+            self.assertEqual(payload['reasoning_effort'],'high')
+            self.assertNotIn('tools',payload)
+            self.assertNotIn('temperature',payload)
+            self.assertEqual(opener.return_value.open.call_args.kwargs['timeout'],600)
+
+    def test_direct_deepseek_none_really_disables_thinking(self):
+        profile={'kind':'openai_compatible','model':'deepseek-flash','base_url':'https://api.deepseek.com','reasoning_effort':'none'}
+        with patch('swarm_bench.providers.build_opener') as opener:
+            opener.return_value.open.return_value=Reply({'choices':[{'message':{'content':'42'}}]})
+            completion(profile,'fake-key',[],[],128)
+            payload=json.loads(opener.return_value.open.call_args.args[0].data)
+            self.assertEqual(payload['thinking'],{'type':'disabled'})
+            self.assertNotIn('reasoning_effort',payload)
+
     def call(self, data):
         profile = {'kind':'openai_compatible', 'model':'test', 'base_url':'https://openrouter.ai/api/v1'}
         with patch('swarm_bench.providers.build_opener') as opener:

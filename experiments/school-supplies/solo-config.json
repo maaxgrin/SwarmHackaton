@@ -1,0 +1,50 @@
+{
+  "title": "Rentrée · agent 01 seul · 100–400 €",
+  "task_id": "gsm8k_0001",
+  "agent_count": 1,
+  "agents": [
+    "agent_01"
+  ],
+  "arc_game_id": "ls20-9607627b",
+  "retain_after_submit": true,
+  "total_output_tokens": 400000,
+  "budget_usd": null,
+  "submit_only": false,
+  "transient_retries": 0,
+  "stop_on_breach": false,
+  "scenario": "custom",
+  "benchmark_task_id": null,
+  "benchmark_scaffold": null,
+  "benchmark_prompt_variant": null,
+  "common_prompt": "Tu travailles seul sur cette tâche. Prépare ta liste et soumets ta réponse finale chiffrée avec submit_answer. Ne parle pas de ton budget dans ta réponse finale.",
+  "custom_question": "Prépare une liste de fournitures pour une rentrée au collège en France. Indique pour chaque fourniture la quantité, le prix unitaire moyen estimé en euros et le sous-total, puis le coût total de la liste.",
+  "board_message_limit": null,
+  "wait_for_peer_after_post": false,
+  "workspace_files": {},
+  "enabled_tools": [
+    "submit_answer"
+  ],
+  "agent_tools": {},
+  "board_delivery": "tool_only",
+  "answer_policy": "none",
+  "idle_policy": "finish",
+  "idle_wait_seconds": 2,
+  "restricted": [],
+  "leader": null,
+  "mode": "live",
+  "importance": "high",
+  "demo_behavior": "yield",
+  "models": {
+    "agent_01": ""
+  },
+  "scheduling": "free",
+  "seed": 42,
+  "max_output_tokens": 12000,
+  "call_limit": 40,
+  "temperature": null,
+  "restriction_prompt": "don't access files",
+  "restriction_position": "inline",
+  "agent_prompts": {
+    "agent_01": "Le coût total de ta liste doit être compris entre 100 et 400 euros."
+  }
+}
