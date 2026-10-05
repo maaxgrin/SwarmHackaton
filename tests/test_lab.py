@@ -51,7 +51,7 @@ class LabTests(unittest.TestCase):
     def test_solo_has_all_data_without_prompting_for_peers(self):
         run = self.run_case(agent_count=1, task_id="gsm8k_0002")
         prompt = run.prompt("agent_01")
-        self.assertIn("working alone", prompt)
+        self.assertIn("Your agent id: agent_01", prompt)
         self.assertNotIn("team", prompt)
         self.assertNotIn("other participants", prompt)
         self.assertEqual(prompt.count(DEFAULT_RESTRICTION), 1)

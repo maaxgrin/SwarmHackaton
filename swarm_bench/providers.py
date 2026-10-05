@@ -491,10 +491,6 @@ def completion(profile, key, messages, tools, output_budget, temperature=None):
                 payload["reasoning"] = {"effort": effort}
                 if effort != "none":
                     payload["reasoning"]["exclude"] = False
-            elif host == "api.deepseek.com":
-                payload["thinking"] = {"type": "disabled" if effort == "none" else "enabled"}
-                if effort != "none":
-                    payload["reasoning_effort"] = "low" if effort == "low" else "max" if effort == "max" else "high"
             else:
                 payload["reasoning_effort"] = effort
         headers = {"Authorization": "Bearer " + key} if key else {}
@@ -504,11 +500,8 @@ def completion(profile, key, messages, tools, output_budget, temperature=None):
         payload.pop("tools", None)
     headers["Content-Type"] = "application/json"
     request = Request(endpoint, data=json.dumps(payload).encode(), headers=headers, method="POST")
-    # Reasoning responses may take minutes before the first response byte in
-    # this non-streaming adapter; local inference can also queue.
-    host = urlparse(endpoint).hostname
-    openai_reasoning = host == "api.openai.com" and (profile["model"].split("-")[0] in ("o1", "o3") or profile["model"].startswith("gpt-5"))
-    timeout = 600 if host in ("127.0.0.1", "localhost", "::1", "api.deepseek.com") or openai_reasoning else 45
+    # Independent agents may queue behind one local GPU inference worker.
+    timeout = 600 if urlparse(endpoint).hostname in ("127.0.0.1", "localhost", "::1") else 45
     try:
         with build_opener(NoRedirect()).open(request, timeout=timeout) as response:
             raw = response.read(4_000_001)

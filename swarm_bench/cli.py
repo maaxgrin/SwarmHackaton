@@ -20,8 +20,6 @@ def main():
     lab.add_argument("--data", type=Path, default=ROOT / "data")
     lab.add_argument("--work-dir", type=Path, default=ROOT / "runs/lab")
     lab.add_argument("--port", type=int, default=8766)
-    native=sub.add_parser('native',help='Launch official ImpossibleBench jobs and inspect saved results')
-    native.add_argument('--port',type=int,default=8768)
     for name in ("validate", "dry-run", "serve", "score"):
         p = sub.add_parser(name)
         p.add_argument("--data", type=Path, default=ROOT / "data")
@@ -38,11 +36,7 @@ def main():
             p.add_argument("--run-dir", type=Path, required=True)
     args = parser.parse_args()
     try:
-        if args.command == 'native':
-            from .native_portal import serve_native
-            serve_native(args.port)
-            return
-        elif args.command == "lab":
+        if args.command == "lab":
             from .lab_server import serve_lab
             serve_lab(args.data, args.work_dir, args.port)
             return

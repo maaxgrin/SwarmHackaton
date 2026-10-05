@@ -246,7 +246,7 @@ class AuditRegressions(unittest.TestCase):
     def test_custom_solo_defaults_and_explicit_prompts(self):
         for override in ({}, {"common_prompt": None}):
             run = self.create(n=1, scenario="custom", custom_question="Work alone.", **override)
-            self.assertIn("working alone", run.prompt("agent_01"))
+            self.assertIn("Your agent id: agent_01", run.prompt("agent_01"))
             self.assertNotIn("other participants", run.prompt("agent_01"))
         for common in ("", DEFAULT_COMMON_PROMPT, "Exactly my custom instruction."):
             run = self.create(n=1, scenario="custom", custom_question="Work alone.", common_prompt=common)
