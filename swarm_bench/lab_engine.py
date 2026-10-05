@@ -275,6 +275,10 @@ def validate_config(raw):
         raise ValueError("Enter the free experiment task (20,000 characters maximum)")
     board_message_limit = (None if raw.get("board_message_limit") is None else
                            integer("board_message_limit", 20, 1, 100000))
+    order_deadline = raw.get("order_deadline", gpu_procurement.DEADLINE_MESSAGES if scenario == PROCUREMENT else None)
+    if order_deadline is not None:
+        order_deadline = integer("order_deadline", order_deadline, 1, 1000)
+    order_final_calls = integer("order_final_calls", gpu_procurement.DEADLINE_FINAL_CALLS, 1, 20)
     wait_for_peer_after_post = raw.get("wait_for_peer_after_post", False)
     if not isinstance(wait_for_peer_after_post, bool):
         raise ValueError("wait_for_peer_after_post must be a boolean")
@@ -356,6 +360,7 @@ def validate_config(raw):
             "scenario": scenario, "benchmark_task_id": benchmark_task_id, "benchmark_scaffold": benchmark_scaffold,
             "benchmark_prompt_variant": benchmark_prompt_variant, "common_prompt": common_prompt, "custom_question": custom_question,
             "board_message_limit": board_message_limit, "wait_for_peer_after_post": wait_for_peer_after_post,
+            "order_deadline": order_deadline, "order_final_calls": order_final_calls,
             "workspace_files": workspace_files, "enabled_tools": enabled_tools, "agent_tools": agent_tools,
             "board_delivery": board_delivery, "answer_policy": answer_policy,
             "idle_policy": idle_policy, "idle_wait_seconds": integer("idle_wait_seconds", 2, 0, 60),
@@ -619,6 +624,7 @@ class LabRun:
         self.pause_requested = threading.Event()
         self.notified = {a: 0 for a in self.agents}
         self.pending_board_context = {a: [] for a in self.agents}
+        self.pending_controller = {a: [] for a in self.agents}  # In-world messages to deliver at the next request.
         self.demo_memory = {a: {} for a in self.agents}
         self.agent_steps = {a: 0 for a in self.agents}
         self.continuing_tools = {a: True for a in self.agents}
@@ -832,10 +838,15 @@ class LabRun:
         return sorted(exposed)
 
     def deliver_pending_board_context(self, agent):
-        """Append peer notes queued while this agent was inside an API call."""
+        """Append peer notes and controller messages queued while this agent was inside an API call.
+
+        Returns whether a controller message was delivered."""
+        controller = self.pending_controller[agent]
+        self.histories[agent].extend(controller)
+        self.pending_controller[agent] = []
         pending = self.pending_board_context[agent]
         if not pending:
-            return
+            return bool(controller)
         exposed = set(self.exposed_notes(self.histories[agent], agent, self.handles.get(agent)))
         for message in pending:
             note_ids = set(message.get("_board_note_ids", []))
@@ -845,6 +856,37 @@ class LabRun:
                 self.event("note_injected", agent, note_ids=sorted(note_ids),
                            source_agent=message.get("_board_source_agent"))
         self.pending_board_context[agent] = []
+        return bool(controller)
+
+    def check_order_deadline(self):
+        """GPU procurement: after enough channel messages the requester asks the buyer to order now.
+
+        The other agents stop, and the buyer gets ``order_final_calls`` more requests to place the order."""
+        limit = self.config.get("order_deadline")
+        if (self.config["scenario"] != PROCUREMENT or limit is None or self.state.get("order_deadline")
+                or len(self.state["notes"]) < limit or self.state.get("finish_reason") in FINAL_STOPS):
+            return
+        buyer = self.procurement["buyer"]
+        self.state["order_deadline"] = {"buyer": buyer, "note_count": len(self.state["notes"]),
+                                        "buyer_calls": self.state["usage"][buyer]["calls"],
+                                        "final_calls": self.config["order_final_calls"]}
+        for a in self.agents:
+            if a != buyer and self.state["agent_status"][a] not in ("error", "limit"):
+                self.state["agent_status"][a] = "done"
+        self.pending_controller[buyer].append({"role": "user", "content": gpu_procurement.DEADLINE_EMAIL})
+        self.event("order_deadline", buyer, origin="controller", note_count=len(self.state["notes"]),
+                   final_calls=self.config["order_final_calls"], content=gpu_procurement.DEADLINE_EMAIL)
+        self.changed.notify_all()
+
+    def awaiting_order(self, agent):
+        """The buyer after the deadline, until the order is placed."""
+        deadline = self.state.get("order_deadline")
+        return bool(deadline) and agent == deadline["buyer"] and self.state.get("finish_reason") != "order_placed"
+
+    def final_calls_used(self, agent):
+        deadline = self.state.get("order_deadline")
+        return (self.awaiting_order(agent) and
+                self.state["usage"][agent]["calls"] >= deadline["buyer_calls"] + deadline["final_calls"])
 
     def event(self, kind, agent=None, **data):
         event = {"id": len(self.state["events"]) + 1, "at": self.now(), "kind": kind,
@@ -990,6 +1032,7 @@ class LabRun:
                     self.state.update(status="stopped", stop_requested=True, finish_reason="board_message_limit")
                     self.pause_requested.set()
                     self.event("board_message_limit_reached", agent, limit=board_limit, note_count=len(self.state["notes"]))
+                self.check_order_deadline()
                 self.changed.notify_all()
                 result = {"note_id": note["id"]}
             elif name == "submit_answer":
@@ -1108,6 +1151,8 @@ class LabRun:
             self.changed.notify_all()
             return
         if all(s in ("waiting", "limit", "error", "done") for s in self.state["agent_status"].values()):
+            if any(self.pending_controller[a] for a in self.agents if self.state["agent_status"][a] == "waiting"):
+                return
             if any(self.latest_peer_note(a) > self.seen_peer_note(a)
                    for a in self.agents if self.state["agent_status"][a] == "waiting"):
                 return
@@ -1117,6 +1162,8 @@ class LabRun:
             self.state["finish_reason"] = ("call_limit" if any(s == "limit" for s in self.state["agent_status"].values())
                                           else "agents_finished" if all(s == "done" for s in self.state["agent_status"].values())
                                           else "conversation_idle")
+            if self.config["scenario"] == PROCUREMENT and self.state["status"] == "complete":
+                self.state["finish_reason"] = "no_order"  # The run ended without a decision in the portal.
             self.changed.notify_all()
 
     def demo_call(self, agent):
@@ -1239,6 +1286,8 @@ class LabRun:
                 if self.pause_requested.is_set() or self.state["status"] in ("complete", "stopped"):
                     return False
                 budget = self.state["token_budget"]
+            if self.state["agent_status"][agent] == "done":
+                return False  # Finished while leaving the loop, e.g. by the order deadline.
             output_budget = min(self.config["max_output_tokens"], budget["limit"]-budget["accounted"]-budget["in_flight"])
             if agent not in self.remaining_agents():
                 raise ValueError("Call limit reached for this agent")
@@ -1349,7 +1398,11 @@ class LabRun:
                         and msg.get("content") and isinstance(msg["content"], str)
                         and self.state.get("finish_reason") not in FINAL_STOPS):
                     self.action(agent, "post_note", {"content": msg["content"][:6000]}, decision=decision, persist=False)
-                self.deliver_pending_board_context(agent)
+                delivered = self.deliver_pending_board_context(agent)
+                if self.awaiting_order(agent) and not calls and not delivered and not self.final_calls_used(agent):
+                    self.histories[agent].append({"role": "user", "content": gpu_procurement.DEADLINE_REMINDER})
+                    self.event("order_reminder", agent, origin="controller", request_id=decision["request_id"],
+                               content=gpu_procurement.DEADLINE_REMINDER)
                 if self.config["scenario"] in ("communication", "group_misalignment", "altruism"):
                     submitted = len(self.state["answers"][agent]) > len(previous_state["answers"][agent])
                     if self.config["retain_after_submit"]:
@@ -1380,6 +1433,8 @@ class LabRun:
                 if isinstance(exc, Exception):
                     self.record_failure(agent, decision, exc, usage)
                 raise
+        if self.awaiting_order(agent):
+            return True  # After the deadline the buyer acts until it orders or its final requests run out.
         posted_note = len(self.state["notes"]) > len(previous_state["notes"])
         if posted_note and self.config.get("wait_for_peer_after_post"):
             return False
@@ -1428,7 +1483,7 @@ class LabRun:
                     if self.state["status"] in ("complete", "stopped") or self.state["agent_status"][agent] == "done":
                         break
                     count = self.state["usage"][agent]["calls"] if self.config["mode"] == "live" else self.agent_steps[agent]
-                    if count >= self.config["call_limit"]:
+                    if count >= self.config["call_limit"] or self.final_calls_used(agent):
                         self.state["agent_status"][agent] = "limit"
                         self.finish_if_idle()
                         break
@@ -1436,9 +1491,11 @@ class LabRun:
                         self.state["agent_status"][agent] = "waiting"
                         deadline = monotonic() + self.config["idle_wait_seconds"]
                         continued = False
-                        while self.latest_peer_note(agent) <= self.seen_peer_note(agent):
+                        while (self.latest_peer_note(agent) <= self.seen_peer_note(agent)
+                               and not self.pending_controller[agent]):
                             self.finish_if_idle()
-                            if self.pause_requested.is_set() or self.state["status"] in ("complete", "stopped", "error"):
+                            if (self.pause_requested.is_set() or self.state["status"] in ("complete", "stopped", "error")
+                                    or self.state["agent_status"][agent] == "done"):
                                 return
                             delay = deadline - monotonic()
                             if self.config["idle_policy"] == "continue" and delay <= 0:
@@ -1452,6 +1509,8 @@ class LabRun:
                             self.changed.wait(timeout=min(0.5, max(delay, 0)) if self.config["idle_policy"] == "continue" else 0.5)
                         if self.pause_requested.is_set():
                             return
+                        if self.pending_controller[agent]:
+                            continued = True  # Woken by an in-world message, not by the channel.
                         if not continued:
                             self.notified[agent] = self.latest_peer_note(agent)
                             if self.config["mode"] == "live" and self.config["board_delivery"] != "push":
