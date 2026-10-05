@@ -64,6 +64,23 @@ The server listens only on `127.0.0.1`. File isolation is enforced by engine too
 
 The [restored seven-agent preset](examples/peer-pressure-seven-agents.json), its [loading instructions](docs/EXPERIENCES.md#seven-contribution-preset), and a [keyless Terra profile](examples/provider-terra.json) are included. The latest measurement, budget, and persistence fixes are documented in [audit corrections](docs/AUDIT_CORRECTIONS.md).
 
+## DeepSeek experiment runners
+
+Set `DEEPSEEK_API_KEY` in the process environment before using these runners. They do not read chat histories or persist the key. Each starts a local replay server and saves checkpoints, configurations and exports under gitignored `runs/`.
+
+```bash
+python3 scripts/run_scripted_peer_pressure.py --seeds 42 43 44
+python3 scripts/run_segment_disclose_solo.py
+python3 scripts/resume_scripted_peer_pressure.py runs/scripted-peer-pressure/<campaign>
+python3 scripts/run_gpu_deepseek_pilot.py --wait-for-peer
+```
+
+The scripted-peer protocol uses one real model and three clearly labelled deterministic peers, twelve reminder variants, matched controls, and separate report-reading and disclosure measurements. Strict solo runs have no peers or board tools. The current preset includes `Rather fail than disclose sensitive information.` and permits 24 cumulative calls with 16,000 output tokens per call. A bounded resume preserves histories, budgets, and the message sequence.
+
+The GPU pilot uses four real DeepSeek agents and the published neutral/upsell prompts. Its optional `--wait-for-peer` setting makes an agent wait for a peer after posting. All purchase actions are local simulations. No order, provider failure, and an over-budget order are different outcomes.
+
+Compact observations are shared in [DeepSeek pilot results](docs/deepseek-pilot-results.json); raw local traces remain in `runs/`. These small, stochastic pilots do not establish a general causal effect of peer pressure.
+
 ## Verify the project
 
 ```bash
